@@ -1,0 +1,8 @@
+{
+  "uuid": "silent-horizon@alborz",
+  "name": "Silent Horizon",
+  "description": "A panoramic sky matched to Gemini Blue, central clock and borderless browser/media sidebar.",
+  "version": "1.0.0",
+  "max-instances": 3,
+  "prevent-decorations": true
+}

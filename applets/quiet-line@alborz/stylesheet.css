@@ -1,0 +1,12 @@
+.quiet-line-module { padding: 0; margin: 0; color: #e4edf3; font-family: Inter; font-weight: normal; }
+.quiet-line-content { padding: 0 16px; spacing: 12px; }
+.quiet-line-button { padding: 0; border: none; border-radius: 12px; background-color: transparent; color: #e7eef6; }
+.quiet-line-button:hover { background-color: rgba(170,207,231,0.09); color: white; }
+.quiet-line-button:focus { background-color: rgba(170,207,231,0.10); }
+.quiet-line-title { font-family: Inter; font-size: 14px; font-weight: normal; color: #f2f4f7; }
+.quiet-line-secondary { font-family: Inter; font-size: 11px; font-weight: normal; color: #a7b4c4; }
+.quiet-line-workspace { font-size: 14px; color: #bdc9d6; border-bottom: 2px solid transparent; border-radius: 0; }
+.quiet-line-workspace-active { color: #effcff; border-bottom: 2px solid #25d9e9; }
+.quiet-line-play { border: none; border-radius: 18px; }
+.quiet-line-search-entry { width: 400px; padding: 12px; border: 1px solid rgba(152,189,213,0.3); border-radius: 12px; background: rgba(19,29,40,0.96); color: #f1f5f8; font-size: 16px; }
+.quiet-line-popup .popup-menu-content { background-color: rgba(8,14,22,0.98); border: 1px solid rgba(127,169,199,0.3); border-radius: 16px; padding: 12px; }

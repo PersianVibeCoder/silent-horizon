@@ -1,0 +1,8 @@
+{
+  "uuid": "quiet-line@alborz",
+  "name": "Quiet Line",
+  "description": "Quiet panel with media, search, expandable tray and a live hover performance dashboard.",
+  "icon": "preferences-desktop-display",
+  "max-instances": 4,
+  "version": "1.2"
+}

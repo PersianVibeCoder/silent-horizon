@@ -1,0 +1,16 @@
+{
+  "role": {
+    "type": "generic",
+    "default": "center"
+  },
+  "visualizer": {
+    "type": "switch",
+    "description": "Show the small playback visualizer",
+    "default": true
+  },
+  "search-key": {
+    "type": "keybinding",
+    "description": "Open app and recent-file search",
+    "default": "<Super>k"
+  }
+}

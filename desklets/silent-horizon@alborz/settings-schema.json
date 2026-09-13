@@ -1,0 +1,107 @@
+{
+  "appearance": {
+    "type": "header",
+    "description": "Silent Horizon \u00b7 component and placement"
+  },
+  "role": {
+    "type": "combobox",
+    "default": "clock",
+    "description": "Component",
+    "options": {
+      "Centered clock": "clock",
+      "Weather, Tonight and Horizon": "dashboard",
+      "Now Playing card": "music"
+    }
+  },
+  "scale": {
+    "type": "spinbutton",
+    "default": 1.0,
+    "min": 0.5,
+    "max": 3,
+    "step": 0.05,
+    "description": "Component scale (1.0 = original drawing size)"
+  },
+  "placement": {
+    "type": "combobox",
+    "default": "inspiration",
+    "description": "Position (unlock before dragging)",
+    "options": {
+      "Recommended desktop layout": "inspiration",
+      "Free position": "free",
+      "Center on screen": "center"
+    }
+  },
+  "locked": {
+    "type": "switch",
+    "default": true,
+    "description": "Lock widget position (also available on right-click)"
+  },
+  "headline": {
+    "type": "entry",
+    "default": "A QUIETER TODAY",
+    "description": "Clock headline",
+    "dependency": "role=clock"
+  },
+  "use24": {
+    "type": "switch",
+    "default": true,
+    "description": "24-hour clock",
+    "dependency": "role=clock"
+  },
+  "visualizer": {
+    "type": "switch",
+    "default": true,
+    "description": "Small audio spectrum beside playback controls (while playing)",
+    "dependency": "role=music"
+  },
+  "location": {
+    "type": "header",
+    "description": "Observer and weather location"
+  },
+  "city": {
+    "type": "entry",
+    "default": "",
+    "description": "Location label",
+    "dependency": "role=dashboard"
+  },
+  "latitude": {
+    "type": "spinbutton",
+    "default": 0,
+    "min": -90,
+    "max": 90,
+    "step": 0.0001,
+    "description": "Latitude"
+  },
+  "longitude": {
+    "type": "spinbutton",
+    "default": 0,
+    "min": -180,
+    "max": 180,
+    "step": 0.0001,
+    "description": "Longitude"
+  },
+  "elevation": {
+    "type": "spinbutton",
+    "default": 0,
+    "min": 0,
+    "max": 9000,
+    "step": 10,
+    "description": "Elevation (meters)"
+  },
+  "fahrenheit": {
+    "type": "switch",
+    "default": true,
+    "description": "Weather in Fahrenheit",
+    "dependency": "role=dashboard"
+  },
+  "info": {
+    "type": "label",
+    "description": "Full horizon panorama shows objects above the horizon. Click a name to highlight its position. Use the refresh arrow for a fresh update; weather and sky also update automatically. Set your own coordinates: the release starts at 0, 0 with a blank location label."
+  },
+  "details": {
+    "type": "switch",
+    "default": false,
+    "description": "Detailed sky positions are available by clicking Horizon View",
+    "dependency": "role=dashboard"
+  }
+}
