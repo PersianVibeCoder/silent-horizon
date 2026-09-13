@@ -2,9 +2,13 @@
 
 A quieter desktop for **Linux Mint Cinnamon**. Weather, a living sky, a delicate clock, and music that finds its place in the taskbar.
 
+https://github.com/user-attachments/assets/df15c5de-22b9-4f89-a6a9-bc0fb00c668b
+
 ![Silent Horizon desktop with Gemini Blue wallpaper](media/desktop.jpg)
 
 **[Watch the 40-second preview](https://github.com/PersianVibeCoder/silent-horizon/releases/latest/download/Silent-Horizon-Preview.mp4)** · **[Download the complete installer ZIP](https://github.com/PersianVibeCoder/silent-horizon/releases/latest/download/silent-horizon.zip)**
+
+The installer ZIP includes the full-resolution **Gemini Blue wallpaper**, applets, desklets and fonts. The showcase video stays on this page and is **not included in the ZIP**.
 
 ## The little details
 
