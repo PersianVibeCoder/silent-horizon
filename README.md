@@ -38,7 +38,7 @@ Built on **Linux Mint 22.3 with Cinnamon**. Other recent Cinnamon distributions 
    bash install.sh
    ```
 
-The installer explains the changes, asks before installing, installs the needed packages through your distribution, backs up affected files and desktop settings, and applies the full layout. Run it as your normal user; it asks for `sudo` only for system packages. Log out and back in afterward so Cinnamon loads the new components and fonts.
+The installer explains the changes, asks before installing, installs only missing packages through your distribution, backs up affected files and desktop settings, and applies the full layout. Run it as your normal user; it asks for `sudo` only for system packages. Log out and back in afterward so Cinnamon loads the new components and fonts.
 
 **The full layout replaces your panel layout and wallpaper.** Existing desklets remain. Your previous layout can be restored with the command printed at the end. Backups stay on your computer in `~/.local/state/silent-horizon/backups/`.
 
@@ -66,7 +66,17 @@ Right-click the weather desklet → **Configure** → enter your latitude, longi
 
 “Above horizon” is a geometric position, not a promise that you can see an object with your eyes: daylight, clouds and an object's brightness affect visibility. Faint planets are included intentionally.
 
-## Restore your previous desktop
+## Uninstall and restore your previous desktop
+
+From the extracted folder, run as the same user who installed it:
+
+```bash
+bash uninstall.sh
+```
+
+This restores installation backups newest first, returning your files, fonts, wallpaper and panel settings to their state before the first installation. It also works with v1.0.0 backups. Log out and back in afterward. Recovery backups, shared APT packages and runtime caches without a pre-install backup are retained to avoid deleting shared or pre-existing data.
+
+### Restore one installation
 
 Use the exact restore command printed by the installer, or choose a timestamp from the backup folder:
 
@@ -84,6 +94,7 @@ Weather and air-quality requests send the configured coordinates to **Open-Meteo
 
 ## Troubleshooting
 
+- **Clock font looks wrong:** the package includes Baskervville Italic for “today” and Work Sans for “A quieter” and the time. Re-run the updated installer, then log out and back in. Fonts are registered and checked before the cards are enabled.
 - **Cards do not appear:** log out and back in; check Cinnamon's Desklets window for Silent Horizon. Enable two instances, setting one to Clock and one to Weather.
 - **Music is missing:** start playback in an MPRIS-compatible player or browser. The media component lives in the taskbar and hides when inactive.
 - **Visualizer is empty:** check that `cava` and `pactl` are installed and a PulseAudio-compatible playback monitor exists.

@@ -117,15 +117,18 @@ def restore(backup, settings, home):
         remove(dest)
         if item['existed']:
             copy(backup / item['slot'], dest)
+    (backup / 'restored').touch()
     print('Previous files and desktop settings restored. Log out and back in.')
 
 
-def install(home, settings, layout, width=1920, height=1080):
+def install(home, settings, layout, width=1920, height=1080, prepare_fonts=None):
     tx = Transaction(home, settings)
     try:
         for kind, uuid in [('desklets', DESK), ('applets', APP)]:
             tx.put(ROOT / kind / uuid, home / '.local/share/cinnamon' / kind / uuid)
         tx.put(ROOT / 'fonts', home / '.local/share/fonts/silent-horizon')
+        if prepare_fonts:
+            prepare_fonts(home)
         wallpaper = home / '.local/share/backgrounds/silent-horizon/Gemini Blue_no stars.jpg'
         tx.put(ROOT / 'wallpapers/Gemini Blue_no stars.jpg', wallpaper)
         desklets = parse_list(settings.get('org.cinnamon', 'enabled-desklets'))
@@ -198,6 +201,17 @@ def install(home, settings, layout, width=1920, height=1080):
     return tx.backup
 
 
+def refresh_fonts(home):
+    if not shutil.which('fc-cache') or not shutil.which('fc-match'):
+        raise RuntimeError('fontconfig is required. Install it before using --no-deps.')
+    subprocess.run(['fc-cache', '-f', str(home / '.local/share/fonts/silent-horizon')], check=True)
+    for pattern, family in [('Baskervville:style=Italic', 'Baskervville'), ('Work Sans:weight=light', 'Work Sans'), ('Inter', 'Inter')]:
+        resolved = run(['fc-match', '-f', '%{family}', pattern])
+        if family not in resolved.split(','):
+            raise RuntimeError(f'Font {family} was not registered (resolved to {resolved}).')
+    print('Clock fonts registered: Baskervville Italic, Work Sans and Inter.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--layout', choices=['full', 'widgets'], default='full')
@@ -230,8 +244,16 @@ def main():
     if not args.no_deps:
         if not shutil.which('apt-get'):
             parser.error('Install the README dependencies for your distribution, then run with --no-deps.')
-        subprocess.run(['sudo', 'apt-get', 'update'], check=True)
-        subprocess.run(['sudo', 'apt-get', 'install', '-y', *PACKAGES], check=True)
+        missing = []
+        for package in PACKAGES:
+            result = subprocess.run(['dpkg-query', '-W', '-f=${Status}', package], capture_output=True, text=True)
+            if result.returncode or result.stdout.strip() != 'install ok installed':
+                missing.append(package)
+        if missing:
+            subprocess.run(['sudo', 'apt-get', 'update'], check=True)
+            subprocess.run(['sudo', 'apt-get', 'install', '-y', *missing], check=True)
+        else:
+            print('All dependencies are installed; no administrator access needed.')
     width, height = 1920, 1080
     try:
         import gi
@@ -243,9 +265,7 @@ def main():
             width, height = geometry.width, geometry.height
     except (ImportError, ValueError):
         pass
-    backup = install(Path.home(), settings, args.layout, width, height)
-    if shutil.which('fc-cache'):
-        subprocess.run(['fc-cache', '-f', str(Path.home() / '.local/share/fonts/silent-horizon')], check=True)
+    backup = install(Path.home(), settings, args.layout, width, height, prepare_fonts=refresh_fonts)
     print('\nInstalled. Log out and back in to load all components and fonts.')
     print('Right-click Weather → Configure to enter your own location. Defaults are 0, 0.')
     print('Restore command:\n  python3 ' + repr(str(Path(__file__).resolve())) + ' --restore ' + repr(str(backup)))

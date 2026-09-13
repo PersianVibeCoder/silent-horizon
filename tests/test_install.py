@@ -82,6 +82,39 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(settings.data, original)
             self.assertFalse((Path(temp) / '.local/share/cinnamon/desklets' / mod.DESK).exists())
 
+    def test_fonts_prepared_before_activation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            settings = FakeSettings()
+            original = settings.data.copy()
+            calls = []
+            def prepare(home):
+                self.assertTrue((home / '.local/share/fonts/silent-horizon/horizon-verse/baskervville/Baskervville-Italic[wght].ttf').exists())
+                self.assertEqual(settings.data, original)
+                calls.append(True)
+            mod.install(Path(temp), settings, 'full', prepare_fonts=prepare)
+            self.assertEqual(calls, [True])
+
+    def test_uninstall_restores_first_install_and_is_repeatable(self):
+        import sys
+        from unittest.mock import patch
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        import uninstall
+        with tempfile.TemporaryDirectory() as temp:
+            settings = FakeSettings()
+            original = settings.data.copy()
+            home = Path(temp)
+            first = mod.install(home, settings, 'full')
+            second = mod.install(home, settings, 'full')
+            with patch.object(uninstall.shutil, 'which', return_value=None):
+                uninstall.uninstall(home, settings)
+                self.assertEqual(settings.data, original)
+                self.assertFalse((home / '.local/share/fonts/silent-horizon').exists())
+                self.assertFalse((home / '.local/share/cinnamon/applets' / mod.APP).exists())
+                uninstall.uninstall(home, settings)
+                self.assertEqual(settings.data, original)
+            self.assertTrue((first / 'restored').exists())
+            self.assertTrue((second / 'restored').exists())
+
     def test_dry_run(self):
         result = subprocess.run(['bash', str(ROOT / 'install.sh'), '--dry-run'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
