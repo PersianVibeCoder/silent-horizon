@@ -150,6 +150,7 @@ class QuietLine extends Applet.Applet {
   this.trayButton=this._button(this.trayIcon,'Show / hide background tray icons',()=>this._toggleTray(),36);
   this.box.add_child(this.trayButton);
   this.controlMenu=new Applet.AppletPopupMenu(this,this._orientation);this._menuManager.addMenu(this.controlMenu);
+  const credit=new PopupMenu.PopupMenuItem('Icons: Uicons by Flaticon');credit.connect('activate',()=>Gio.AppInfo.launch_default_for_uri('https://www.flaticon.com/uicons',global.create_app_launch_context()));this._applet_context_menu.addMenuItem(credit);
   const quick=new PopupMenu.PopupMenuItem('Quick controls · calendar and settings');quick.connect('activate',()=>this._openControls());this._applet_context_menu.addMenuItem(quick);
  } 
  _toggleTray(){this._overflow=!this._overflow;this._syncTray();}

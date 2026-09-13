@@ -1,0 +1,6 @@
+#!/bin/sh
+# The renderer checks the active theme internally; other themes keep stock rendering.
+if [ -f "$HOME/.local/lib/quiet-glass-plank/libplank.so.1" ]; then
+    export LD_LIBRARY_PATH="$HOME/.local/lib/quiet-glass-plank${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+exec /usr/bin/plank "$@"

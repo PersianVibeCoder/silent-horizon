@@ -7,7 +7,7 @@ import zipfile
 root = Path(__file__).resolve().parents[1]
 out = root / 'dist'
 out.mkdir(exist_ok=True)
-allowed = ['applets', 'desklets', 'fonts', 'wallpapers', 'media', 'scripts', 'tests']
+allowed = ['applets', 'desklets', 'fonts', 'wallpapers', 'media', 'scripts', 'tests', 'plank']
 files = [root / name for name in ['README.md', 'LICENSE', 'CREDITS.md', 'install.sh', 'uninstall.sh']]
 for name in allowed:
     files.extend(p for p in (root / name).rglob('*') if p.is_file()

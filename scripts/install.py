@@ -4,6 +4,7 @@ import argparse
 import datetime
 import json
 import os
+import platform
 from pathlib import Path
 import shutil
 import subprocess
@@ -80,6 +81,11 @@ class Transaction:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(json.dumps(data, indent=2) + '\n')
 
+    def write_text(self, text, dest):
+        self.record_file(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text)
+
     def setting(self, schema, key, value):
         old = self.settings.get(schema, key)
         self.journal['settings'].append([schema, key, old])
@@ -121,7 +127,7 @@ def restore(backup, settings, home):
     print('Previous files and desktop settings restored. Log out and back in.')
 
 
-def install(home, settings, layout, width=1920, height=1080, prepare_fonts=None):
+def install(home, settings, layout, width=1920, height=1080, prepare_fonts=None, with_plank=False):
     tx = Transaction(home, settings)
     try:
         for kind, uuid in [('desklets', DESK), ('applets', APP)]:
@@ -151,10 +157,21 @@ def install(home, settings, layout, width=1920, height=1080, prepare_fonts=None)
         # Reuse existing instances/settings on updates, including the recipient's location.
         existing = [v for v in desklets if v.startswith(DESK + ':')]
         if not existing:
-            scale = round(min(width / 1920, height / 1080), 2)
+            factor = min(width / 2560, height / 1440)
             for role in ['clock', 'dashboard']:
-                ident = instance('desklets', DESK, role, {'scale': max(.5, min(3, scale))})
+                ident = instance('desklets', DESK, role, {'scale': max(.5, min(3, round((1.53 if role == 'clock' else 1.1) * factor, 2)))})
                 desklets.append(f'{DESK}:{ident}:100:100')
+        else:
+            previous_scale = round(min(width / 1920, height / 1080), 2)
+            factor = min(width / 2560, height / 1440)
+            for entry in existing:
+                saved = home / '.config/cinnamon/spices' / DESK / (entry.split(':')[1] + '.json')
+                if saved.exists():
+                    data = json.loads(saved.read_text())
+                    role = data.get('role', {}).get('value')
+                    if role in ('clock', 'dashboard') and data.get('scale', {}).get('value') == max(.5, min(3, previous_scale)):
+                        data['scale']['value'] = max(.5, min(3, round((1.53 if role == 'clock' else 1.1) * factor, 2)))
+                        tx.write_json(data, saved)
         if layout == 'full':
             roles = {}
             stock_ids = {}
@@ -176,6 +193,16 @@ def install(home, settings, layout, width=1920, height=1080, prepare_fonts=None)
                     ident = next_id
                     next_id += 1
                 applets.append(f'panel1:{side}:{order}:{uuid}:{ident}')
+                if uuid == 'calendar@cinnamon.org':
+                    dest = home / '.config/cinnamon/spices' / uuid / f'{ident}.json'
+                    source = Path('/usr/share/cinnamon/applets') / uuid / 'settings-schema.json'
+                    if source.exists():
+                        data = json.loads(dest.read_text()) if dest.exists() else config(source, {})
+                        for key, value in [('use-custom-format', True), ('custom-format', '%-I:%M %p')]:
+                            if key in data:
+                                data[key]['value'] = value
+                        tx.write_json(data, dest)
+
             stock('menu@cinnamon.org', 'left', 0)
             for role, side, order in [('navigation', 'left', 1), ('center', 'right', 0), ('controls', 'right', 30)]:
                 ident = roles.get(role)
@@ -188,9 +215,15 @@ def install(home, settings, layout, width=1920, height=1080, prepare_fonts=None)
                     stock(uuid + '@cinnamon.org', 'right', order)
             tx.setting('org.cinnamon', 'panels-enabled', repr(['1:0:top']))
             tx.setting('org.cinnamon', 'panels-height', repr(['1:44']))
+            tx.setting('org.cinnamon', 'panel-zone-icon-sizes', repr(json.dumps([{'panelId': 1, 'left': 0, 'center': 0, 'right': 24}])))
+            tx.setting('org.cinnamon', 'panel-zone-symbolic-icon-sizes', repr(json.dumps([{'panelId': 1, 'left': 50, 'center': 50, 'right': 20}])))
+            tx.setting('org.cinnamon', 'panel-zone-text-sizes', repr(json.dumps([{'panelId': 1, 'left': 0.0, 'center': 0.0, 'right': 0.0}])))
+
             tx.setting('org.cinnamon.desktop.background', 'picture-uri', repr(wallpaper.as_uri()))
             tx.setting('org.cinnamon.desktop.background', 'picture-options', repr('zoom'))
             tx.setting('org.cinnamon', 'enabled-applets', repr(applets))
+        if with_plank and layout == 'full':
+            install_plank(tx, home, settings)
         tx.setting('org.cinnamon', 'enabled-desklets', repr(desklets))
         tx.setting('org.cinnamon', 'next-desklet-id', str(next_id))
         tx.setting('org.cinnamon', 'next-applet-id', str(next_id))
@@ -199,6 +232,38 @@ def install(home, settings, layout, width=1920, height=1080, prepare_fonts=None)
         restore(tx.backup, settings, home)
         raise
     return tx.backup
+
+
+def install_plank(tx, home, settings):
+    if not (home / '.config/plank').exists():
+        tx.record_file(home / '.config/plank')
+    tx.put(ROOT / 'plank/themes/Quiet-Glass', home / '.local/share/plank/themes/Quiet-Glass')
+    docks = parse_list(settings.get('net.launchpad.plank', 'enabled-docks')) or ['dock1']
+    for dock in docks:
+        if not dock.replace('-', '').replace('_', '').isalnum():
+            raise RuntimeError('Unexpected Plank dock name.')
+        schema = f'net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/{dock}/'
+        tx.setting(schema, 'theme', repr('Quiet-Glass'))
+        if not (home / '.config/plank' / dock).exists():
+            for key, value in [('icon-size', '50'), ('zoom-enabled', 'true'), ('zoom-percent', '130'),
+                               ('position', "'bottom'"), ('alignment', "'center'"), ('hide-mode', "'dodge-maximized'"), ('offset', '0')]:
+                tx.setting(schema, key, value)
+    # The supplied renderer matches Mint 22 / Ubuntu 24.04's Plank ABI.
+    version = run(['plank', '--version'])
+    libc = platform.libc_ver()[1]
+    compatible = platform.machine() == 'x86_64' and tuple(int(n) for n in libc.split('.')[:2]) >= (2, 38) and '0.11.89' in version
+    if compatible:
+        tx.put(ROOT / 'plank/renderer', home / '.local/lib/quiet-glass-plank')
+        tx.put(ROOT / 'plank/plank-quiet-glass', home / '.local/bin/plank-quiet-glass')
+        (home / '.local/bin/plank-quiet-glass').chmod(0o755)
+        launcher = json.dumps(str(home / '.local/bin/plank-quiet-glass'))
+    else:
+        launcher = 'plank'
+        print('Quiet Glass theme applied. Custom corner-glow renderer requires Plank 0.11.89 on x86_64 with glibc 2.38+; see plank/README.md to build it.')
+    entry = '[Desktop Entry]\nType=Application\nName=Plank\nComment=Quiet Glass dock\nExec=' + launcher + '\nIcon=plank\nTerminal=false\nX-GNOME-Autostart-enabled=true\n'
+    tx.write_text(entry, home / '.config/autostart/plank.desktop')
+    tx.write_text(entry, home / '.local/share/applications/plank.desktop')
+    print('Plank: Quiet Glass applied. Existing pinned apps and configured dock layout preserved.')
 
 
 def refresh_fonts(home):
@@ -223,7 +288,7 @@ def main():
     if args.dry_run:
         print('Plan: user-local desklets, applets, fonts and wallpaper. New weather settings: 0, 0; blank label.')
         print('Layout:', args.layout, '— full replaces panels and wallpaper; widgets preserves them.')
-        print('Dependencies:', ' '.join(PACKAGES) if not args.no_deps else 'skipped')
+        print('Dependencies:', ' '.join(PACKAGES + (['plank'] if args.layout == 'full' else [])) if not args.no_deps else 'skipped')
         print('Back up changed files and settings under ~/.local/state/silent-horizon/backups/. No changes made.')
         return
     if os.geteuid() == 0:
@@ -235,7 +300,7 @@ def main():
         restore(args.restore.expanduser().resolve(), settings, Path.home())
         return
     if not args.yes:
-        print('Silent Horizon installs weather/sky and clock desklets, Quiet Line, fonts and wallpaper.')
+        print('Silent Horizon installs weather/sky and clock desklets, Quiet Line, fonts, wallpaper and Quiet Glass for Plank.')
         print('Full layout replaces the current panel layout and wallpaper; widgets leaves those settings alone.')
         print('Selected:', args.layout, '— your current settings and affected files will be backed up.')
         if input('Install? [y/N] ').strip().lower() not in ('y', 'yes'):
@@ -245,7 +310,7 @@ def main():
         if not shutil.which('apt-get'):
             parser.error('Install the README dependencies for your distribution, then run with --no-deps.')
         missing = []
-        for package in PACKAGES:
+        for package in PACKAGES + (['plank'] if args.layout == 'full' else []):
             result = subprocess.run(['dpkg-query', '-W', '-f=${Status}', package], capture_output=True, text=True)
             if result.returncode or result.stdout.strip() != 'install ok installed':
                 missing.append(package)
@@ -265,7 +330,7 @@ def main():
             width, height = geometry.width, geometry.height
     except (ImportError, ValueError):
         pass
-    backup = install(Path.home(), settings, args.layout, width, height, prepare_fonts=refresh_fonts)
+    backup = install(Path.home(), settings, args.layout, width, height, prepare_fonts=refresh_fonts, with_plank=True)
     print('\nInstalled. Log out and back in to load all components and fonts.')
     print('Right-click Weather → Configure to enter your own location. Defaults are 0, 0.')
     print('Restore command:\n  python3 ' + repr(str(Path(__file__).resolve())) + ' --restore ' + repr(str(backup)))

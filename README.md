@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/df15c5de-22b9-4f89-a6a9-bc0fb00c668b
 
 **[Watch the 40-second preview](https://github.com/PersianVibeCoder/silent-horizon/releases/download/v1.0.0/Silent-Horizon-Preview.mp4)** · **[Download the complete installer ZIP](https://github.com/PersianVibeCoder/silent-horizon/releases/latest/download/silent-horizon.zip)**
 
-The installer ZIP includes the full-resolution **Gemini Blue wallpaper**, applets, desklets and fonts. The showcase video stays on this page and is **not included in the ZIP**.
+The installer ZIP includes the full-resolution **Gemini Blue wallpaper**, applets, desklets, fonts and the Quiet Glass Plank theme. The showcase video stays on this page and is **not included in the ZIP**.
 
 ## The little details
 
@@ -57,6 +57,10 @@ bash install.sh --dry-run
 ```
 
 On distributions without APT, install Python 3, PyGObject, Pillow, GTK 3 introspection, `cava`, `pactl` and `fontconfig` with your package manager, then run `bash install.sh --no-deps`. Cinnamon must already be installed. Missing GPU sensors are shown as unavailable; no graphics drivers are installed by this project.
+
+## Quiet Glass dock
+
+The full installer installs Plank if missing and applies Quiet Glass. Existing pinned apps and configured dock layout are preserved. The custom glow renderer supports Plank 0.11.89 on x86_64 with glibc 2.38 or newer; other systems get the theme, with rebuild instructions in `plank/README.md`. Log out and back in to load the renderer. Uninstall restores the previous theme, settings and launcher from backups; the shared Plank package remains installed.
 
 ## Set your location
 

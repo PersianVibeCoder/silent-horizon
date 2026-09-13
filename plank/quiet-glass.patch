@@ -1,0 +1,146 @@
+--- a/lib/Drawing/Theme.vala
++++ b/lib/Drawing/Theme.vala
+@@ -187,8 +187,76 @@
+ 		 *
+ 		 * @param surface the surface to draw on
+ 		 */
++		// Quiet Glass is rendered inside a padded surface: the feathered corner
++		// light stays inside the dock window even while its width is animated.
++		public bool is_quiet_glass ()
++		{
++			return theme_folder != null && theme_folder.get_basename () == "Quiet-Glass";
++		}
++
++		void quiet_glass_path (Cairo.Context cr, double x, double y, double w, double h, double r)
++		{
++			draw_rounded_rect (cr, x, y, w, h, r, r, 1.0);
++		}
++
++		void quiet_glass_corner (Cairo.Context cr, double x, double y, double w, double h, double r, bool first)
++		{
++			double cx = first ? x + 0.30 * r : x + w - 0.30 * r;
++			double cy = first ? y + 0.30 * r : y + h - 0.30 * r;
++			double spread = double.min (44.0, h * 0.61);
++			// A soft inner reflection, clipped only to the actual glass shape.
++			cr.save ();
++			quiet_glass_path (cr, x, y, w, h, r);
++			cr.clip ();
++			var inner = new Cairo.Pattern.radial (cx, cy, 0, cx, cy, spread);
++			inner.add_color_stop_rgba (0, 0.78, 0.89, 0.96, 0.42);
++			inner.add_color_stop_rgba (0.25, 0.61, 0.77, 0.88, 0.19);
++			inner.add_color_stop_rgba (0.60, 0.44, 0.62, 0.78, 0.065);
++			inner.add_color_stop_rgba (1, 0.44, 0.62, 0.78, 0);
++			cr.set_source (inner);
++			cr.paint ();
++			cr.restore ();
++			// Concentric strokes form a smooth halo with no rectangular cutoff.
++			double[] widths = { 16, 11, 7, 4, 2.2, 1.05 };
++			double[] strengths = { 0.025, 0.035, 0.065, 0.14, 0.32, 0.94 };
++			for (int i = 0; i < widths.length; i++) {
++				var rim = new Cairo.Pattern.radial (cx, cy, 0, cx, cy, spread);
++				rim.add_color_stop_rgba (0, 0.91, 0.98, 1, strengths[i]);
++				rim.add_color_stop_rgba (0.26, 0.79, 0.92, 1, strengths[i] * 0.80);
++				rim.add_color_stop_rgba (0.65, 0.63, 0.79, 0.91, strengths[i] * 0.15);
++				rim.add_color_stop_rgba (1, 0.63, 0.79, 0.91, 0);
++				quiet_glass_path (cr, x, y, w, h, r);
++				cr.set_source (rim);
++				cr.set_line_width (widths[i]);
++				cr.stroke ();
++			}
++		}
++
++		void draw_quiet_glass (Surface surface)
++		{
++			unowned Cairo.Context cr = surface.Context;
++			double x = 12.5, y = 12.5;
++			double w = surface.Width - 25.0, h = surface.Height - 25.0;
++			if (w <= 0 || h <= 0) return;
++			double radius = double.min (TopRoundness, h / 2.0);
++			cr.save ();
++			var fill = new Cairo.Pattern.linear (0, y, 0, y + h);
++			fill.add_color_stop_rgba (0, FillStartColor.red, FillStartColor.green, FillStartColor.blue, FillStartColor.alpha);
++			fill.add_color_stop_rgba (1, FillEndColor.red, FillEndColor.green, FillEndColor.blue, FillEndColor.alpha);
++			quiet_glass_path (cr, x, y, w, h, radius);
++			cr.set_source (fill);
++			cr.fill_preserve ();
++			cr.set_line_width (1);
++			cr.set_source_rgba (OuterStrokeColor.red, OuterStrokeColor.green, OuterStrokeColor.blue, OuterStrokeColor.alpha);
++			cr.stroke ();
++			quiet_glass_corner (cr, x, y, w, h, radius, true);
++			quiet_glass_corner (cr, x, y, w, h, radius, false);
++			cr.restore ();
++		}
++
+ 		public void draw_background (Surface surface)
+ 		{
++			if (is_quiet_glass ()) { draw_quiet_glass (surface); return; }
+ 			unowned Cairo.Context cr = surface.Context;
+ 			Cairo.Pattern gradient;
+ 			var width = surface.Width;
+--- a/lib/Drawing/DockTheme.vala
++++ b/lib/Drawing/DockTheme.vala
+@@ -220,6 +220,16 @@
+ 			
+ 			unowned Cairo.Context cr = surface.Context;
+ 			
++			if (is_quiet_glass ()) {
++                // Fixed cool running dot; badges still carry notification counts.
++                cr.arc (size / 2.0, size / 2.0, 2.15, 0, Math.PI * 2);
++                cr.set_source_rgba (0.42, 0.81, 0.98, 1);
++                cr.fill_preserve ();
++                cr.set_line_width (0.45);
++                cr.set_source_rgba (0.81, 0.95, 1, 0.85);
++                cr.stroke ();
++                return surface;
++            }
+ 			var x = size / 2;
+ 			var y = x;
+ 			
+@@ -293,6 +303,30 @@
+ 		{
+ 			if (opacity <= 0.0 || rect.width <= 0 || rect.height <= 0)
+ 				return;
++
++			if (is_quiet_glass ()) {
++				// The visible glass is inset from its surface to reserve room for
++				// the corner halo. Selection must use that same rounded boundary.
++				unowned Cairo.Context glow_cr = surface.Context;
++				double x = clip_rect.x + 12.5, y = clip_rect.y + 12.5;
++				double w = clip_rect.width - 25.0, h = clip_rect.height - 25.0;
++				if (w <= 0 || h <= 0) return;
++				double radius = double.min (TopRoundness, double.min (w, h) / 2.0);
++				glow_cr.save ();
++				draw_rounded_rect (glow_cr, x, y, w, h, radius, radius, 1);
++				glow_cr.clip ();
++				double cx = (rect.x + rect.width / 2.0).clamp (x, x + w);
++				double cy = (rect.y + rect.height / 2.0).clamp (y, y + h);
++				double spread = double.max (rect.width, rect.height) * 0.75;
++				var glow = new Cairo.Pattern.radial (cx, cy, 0, cx, cy, spread);
++				glow.add_color_stop_rgba (0, 0.70, 0.85, 0.96, 0.19 * opacity);
++				glow.add_color_stop_rgba (0.55, 0.52, 0.71, 0.87, 0.09 * opacity);
++				glow.add_color_stop_rgba (1, 0.52, 0.71, 0.87, 0);
++				glow_cr.set_source (glow);
++				glow_cr.paint ();
++				glow_cr.restore ();
++				return;
++			}
+ 			
+ 			unowned Cairo.Context cr = surface.Context;
+ 			
+--- a/lib/DockRenderer.vala
++++ b/lib/DockRenderer.vala
+@@ -962,6 +962,14 @@
+ 				break;
+ 			}
+ 			
++            if (theme.is_quiet_glass ()) {
++                switch (position_manager.Position) {
++                case Gtk.PositionType.BOTTOM: y -= 15; break;
++                case Gtk.PositionType.TOP: y += 15; break;
++                case Gtk.PositionType.LEFT: x += 15; break;
++                case Gtk.PositionType.RIGHT: x -= 15; break;
++                }
++            }
+ 			if (indicator == IndicatorState.SINGLE) {
+ 				cr.set_source_surface (indicator_surface.Internal, x, y);
+ 				cr.paint ();

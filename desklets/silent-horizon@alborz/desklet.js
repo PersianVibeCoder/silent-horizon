@@ -13,6 +13,7 @@ class SilentDesklet extends Desklet.Desklet {
     constructor(metadata,id){
         super(metadata,id);this._id=id;this._path=metadata.path;this._uuid=metadata.uuid;
         imports.searchPath.unshift(metadata.path);
+        imports.gi.PangoCairo.FontMap.get_default().changed();
         this.Data=imports.quietHorizonData20260911;this.Art=imports.quietHorizonPolish20260911;this.Sky=imports.quietSky;this.Audio=imports.atmosphereAudio;this.A=imports.vendor.astronomy.Astronomy;
         this._renderer=new this.Art.Renderer(metadata.path);this._state={};this._artPaths={};this._artAccents={};this._disposed=false;
         this.settings=new Settings.DeskletSettings(this,metadata.uuid,id);
@@ -43,7 +44,7 @@ class SilentDesklet extends Desklet.Desklet {
         this._monitorSignal=Main.layoutManager.connect('monitors-changed',()=>{this._align();this._prepareBackdrop();});
         this._wallpaper=new Gio.Settings({schema_id:'org.cinnamon.desktop.background'});
         this._wallpaperSignal=this._wallpaper.connect('changed',()=>this._prepareBackdrop());
-        let reset=new PopupMenu.PopupMenuItem('Restore recommended layout');reset.connect('activate',()=>{this.placement='inspiration';this.scale=Math.min(Main.layoutManager.primaryMonitor.width/1672,Main.layoutManager.primaryMonitor.height/941);this._changed();});this._menu.addMenuItem(reset);
+        let reset=new PopupMenu.PopupMenuItem('Restore recommended layout');reset.connect('activate',()=>{this.placement='inspiration';this.scale=(this.role==='clock'?1.53:1.1)*Math.min(Main.layoutManager.primaryMonitor.width/2560,Main.layoutManager.primaryMonitor.height/1440);this._changed();});this._menu.addMenuItem(reset);
         let center=new PopupMenu.PopupMenuItem('Center this component');center.connect('activate',()=>{this.placement='center';this._align();});this._menu.addMenuItem(center);
         for(const [label,url] of [['Weather · Open-Meteo','https://open-meteo.com/'],['Air quality · CAMS / Open-Meteo','https://open-meteo.com/en/docs/air-quality-api']]){
             const item=new PopupMenu.PopupMenuItem(label);item.connect('activate',()=>Gio.AppInfo.launch_default_for_uri(url,null));this._menu.addMenuItem(item);
@@ -141,7 +142,7 @@ class SilentDesklet extends Desklet.Desklet {
         if(this.placement==='center'){x=m.x+(m.width-w*this.scale)/2;y=m.y+(m.height-h*this.scale)/2;}
         else{
             const sx=m.width/1672,sy=m.height/941;
-            if(this.role==='clock'){x=m.x+m.width*.48-w*this.scale/2;y=m.y+110*sy;}
+            if(this.role==='clock'){x=m.x+m.width*825/2560;y=m.y+m.height*200/1440;}
             else if(this.role==='dashboard'){x=m.x+m.width-44*sx-w*this.scale+12*this.scale;y=m.y+65*sy-12*this.scale;}
             else{x=m.x+m.width-44*sx-w*this.scale+12*this.scale;y=m.y+65*sy+(682+18)*this.scale-12*this.scale;}
 

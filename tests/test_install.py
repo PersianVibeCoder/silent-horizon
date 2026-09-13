@@ -18,6 +18,7 @@ class FakeSettings:
             ('org.cinnamon', 'enabled-applets'): "['panel1:left:0:menu@cinnamon.org:5']",
             ('org.cinnamon', 'panels-enabled'): "['1:0:bottom']",
             ('org.cinnamon', 'panels-height'): "['1:40']",
+            **{('org.cinnamon', k): "'[]'" for k in ['panel-zone-icon-sizes','panel-zone-symbolic-icon-sizes','panel-zone-text-sizes']},
             ('org.cinnamon', 'next-desklet-id'): '9',
             ('org.cinnamon', 'next-applet-id'): '10',
             ('org.cinnamon.desktop.background', 'picture-uri'): "'file:///previous.jpg'",
@@ -114,6 +115,45 @@ class InstallerTests(unittest.TestCase):
                 self.assertEqual(settings.data, original)
             self.assertTrue((first / 'restored').exists())
             self.assertTrue((second / 'restored').exists())
+
+    def test_reference_scales_and_upgrade(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            settings = FakeSettings()
+            mod.install(home, settings, 'full', 2560, 1440)
+            configs = list((home / '.config/cinnamon/spices' / mod.DESK).glob('*.json'))
+            for p in configs:
+                data = json.loads(p.read_text())
+                self.assertEqual(data['scale']['value'], 1.53 if data['role']['value'] == 'clock' else 1.1)
+                data['scale']['value'] = 1.33
+                p.write_text(json.dumps(data))
+            mod.install(home, settings, 'full', 2560, 1440)
+            for p in configs:
+                data = json.loads(p.read_text())
+                self.assertEqual(data['scale']['value'], 1.53 if data['role']['value'] == 'clock' else 1.1)
+
+    def test_plank_existing_dock_keeps_layout_and_restores(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            (home / '.config/plank/dock1').mkdir(parents=True)
+            settings = FakeSettings()
+            schema = 'net.launchpad.plank.dock.settings:/net/launchpad/plank/docks/dock1/'
+            settings.data['net.launchpad.plank', 'enabled-docks'] = "['dock1']"
+            settings.data[schema, 'theme'] = "'Existing theme'"
+            settings.data[schema, 'icon-size'] = '64'
+            settings.data[schema, 'dock-items'] = "['my-app.dockitem']"
+            original = settings.data.copy()
+            tx = mod.Transaction(home, settings)
+            with patch.object(mod, 'run', return_value='Plank 0.11.89'), patch.object(mod.platform, 'machine', return_value='x86_64'), patch.object(mod.platform, 'libc_ver', return_value=('glibc','2.39')):
+                mod.install_plank(tx, home, settings)
+            self.assertEqual(settings.data[schema, 'theme'], "'Quiet-Glass'")
+            self.assertEqual(settings.data[schema, 'icon-size'], '64')
+            self.assertEqual(settings.data[schema, 'dock-items'], "['my-app.dockitem']")
+            self.assertTrue((home / '.local/lib/quiet-glass-plank/libplank.so.1').exists())
+            mod.restore(tx.backup, settings, home)
+            self.assertEqual(settings.data, original)
+            self.assertFalse((home / '.config/autostart/plank.desktop').exists())
 
     def test_dry_run(self):
         result = subprocess.run(['bash', str(ROOT / 'install.sh'), '--dry-run'], capture_output=True, text=True)
