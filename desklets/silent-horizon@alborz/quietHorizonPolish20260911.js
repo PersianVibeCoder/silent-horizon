@@ -159,11 +159,11 @@ var Renderer=class Renderer {
         if(quote.toUpperCase()==='A QUIETER TODAY')quote='A quieter today';
         const split=quote.lastIndexOf(' ');
         const lead=split<0?'':quote.slice(0,split),last=split<0?quote:quote.slice(split+1);
-        label(lead,92,46,32,'Work Sans Light',ivory,155);
-        label(last,90,81,60,'Baskervville Italic',ivory,155);
-        const timeWidth=label(s.time,382,39,114,'Work Sans Thin',ivory,300,-4,'center',true);
-        if(s.period)label(s.period,382+timeWidth/2,127,20,'Work Sans Thin',periodBlue,52,1,'right');
-        label(s.day+' / '+s.date,300,174,10,'Inter Regular',blue,400,3.2,'center');
+        label(lead,92,46,32,'Silent Horizon Lead',ivory,155);
+        label(last,90,81,60,'Silent Horizon Today Italic',ivory,155);
+        const timeWidth=label(s.time,382,39,114,'Silent Horizon Time',ivory,300,-4,'center',true);
+        if(s.period)label(s.period,382+timeWidth/2,127,20,'Silent Horizon Time',periodBlue,52,1,'right');
+        label(s.day+' / '+s.date,300,174,10,'Silent Horizon Date',blue,400,3.2,'center');
     }
     glass(cr,s,scale,height){
         const spec=s.backdrop,key=JSON.stringify([scale,spec,height]);

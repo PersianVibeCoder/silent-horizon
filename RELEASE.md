@@ -1,13 +1,13 @@
-# Silent Horizon + Quiet Line · v1.1.0
+# Silent Horizon + Quiet Line · v1.1.1
 
-- Restore the original taskbar icons and correct clock/card proportions and panel sizing.
-- Refresh Cinnamon’s font map so the bundled clock fonts can be picked up correctly.
-- Install Plank when missing and apply Quiet Glass, preserving existing pinned apps and dock layout.
-- Include the custom Quiet Glass renderer for compatible Plank 0.11.89 systems, with full patched source and build instructions.
-- Include the original full-resolution Gemini Blue wallpaper and backup-based uninstall.
+- Bundle fixed clock font faces for the light headline, serif italic “today,” thin digits/AM-PM and spaced date. Verify the actual font paths at installation to catch fallback fonts.
+- Use 12-hour time on new installs; preserve existing user preferences.
+- Fix the minimized Weather arrow and make refresh writes asynchronous with duplicate-click protection.
+- Keep the original taskbar icons, full-resolution wallpaper, Quiet Glass Plank theme/custom renderer and backup-based uninstaller.
+- Replace the showcase with a 48-second 1080p60 video, original ambient score, smooth transitions and a Quiet Glass dock close-up.
 
-Download `silent-horizon.zip`, extract it and run `bash install.sh`. Log out and back in afterward. Run `bash uninstall.sh` to restore backed-up desktop files and settings. Shared system packages remain installed.
+Download `silent-horizon.zip`, extract it, run `bash install.sh`, then log out and back in. For an existing clock, turn off **24-hour clock** if you want AM/PM. Uninstall with `bash uninstall.sh`.
 
-New location defaults are zero with a blank label. The showcase video remains on the main page and outside the installer ZIP.
+Video files are separate release assets and are not in the installer ZIP. Location defaults remain zero with a blank label.
 
-Validation: nine installer tests pass. Clock rendering was compared pixel-for-pixel in an isolated Cinnamon session; original taskbar icons and the Quiet Glass dock were inspected there. The final rebuilt renderer has not had a further graphical run, and other distributions remain unverified.
+Validation: ten installer tests, including a font-isolated install and intentional missing-italic failure; clock rendering compared against the original font files without host fonts; refresh button handlers tested with repeated requests and expansion toggles. Distribution-specific font rendering can still vary slightly.

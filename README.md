@@ -2,11 +2,11 @@
 
 A quieter desktop for **Linux Mint Cinnamon**. Weather, a living sky, a delicate clock, and music that finds its place in the taskbar.
 
-https://github.com/user-attachments/assets/df15c5de-22b9-4f89-a6a9-bc0fb00c668b
+https://github.com/user-attachments/assets/f5927e2a-a41b-4434-9961-06dbaee9f868
 
 ![Silent Horizon desktop with Gemini Blue wallpaper](media/desktop.jpg)
 
-**[Watch the 40-second preview](https://github.com/PersianVibeCoder/silent-horizon/releases/download/v1.0.0/Silent-Horizon-Preview.mp4)** · **[Download the complete installer ZIP](https://github.com/PersianVibeCoder/silent-horizon/releases/latest/download/silent-horizon.zip)**
+**[Watch the 48-second preview](https://github.com/PersianVibeCoder/silent-horizon/releases/download/v1.1.1/Silent-Horizon-Preview.mp4)** · **[Download the complete installer ZIP](https://github.com/PersianVibeCoder/silent-horizon/releases/latest/download/silent-horizon.zip)**
 
 The installer ZIP includes the full-resolution **Gemini Blue wallpaper**, applets, desklets, fonts and the Quiet Glass Plank theme. The showcase video stays on this page and is **not included in the ZIP**.
 
@@ -18,13 +18,14 @@ The installer ZIP includes the full-resolution **Gemini Blue wallpaper**, applet
 - **Room to breathe:** collapse Weather and System into compact header bars, or expand them for a closer look.
 - **Music in the taskbar:** Quiet Line's Now Playing appears when compatible MPRIS players are active, with playback controls and a small audio visualizer.
 - **A useful top bar:** workspace navigation, app search, an expandable tray, quick controls and a performance dashboard.
+- **Quiet Glass dock:** Plank with a matching glass theme, corner lights and a user-local custom renderer on supported systems.
 - **The complete look:** Gemini Blue wallpaper and the fonts used by the cards are included.
 
 ![Weather and horizon detail](media/horizon.jpg)
 ![The animated card edge, up close](media/glow.jpg)
 ![Now Playing in Quiet Line](media/taskbar.jpg)
 
-The preview uses demonstration weather and accelerated time. Its observer coordinates are **0°, 0°**; it does not show the author's location. Playback animation and weather transitions in the presentation are choreographed to demonstrate the design.
+The 48-second preview runs at 60 fps with an original ambient score, timed transitions and captions. It includes the matching Quiet Glass dock. The preview uses demonstration weather and accelerated time. Its observer coordinates are **0°, 0°**; it does not show the author's location. Playback animation and weather transitions in the presentation are choreographed to demonstrate the design.
 
 ## Install
 
@@ -60,7 +61,15 @@ On distributions without APT, install Python 3, PyGObject, Pillow, GTK 3 introsp
 
 ## Quiet Glass dock
 
+![Quiet Glass Plank dock](media/dock.jpg)
+
 The full installer installs Plank if missing and applies Quiet Glass. Existing pinned apps and configured dock layout are preserved. The custom glow renderer supports Plank 0.11.89 on x86_64 with glibc 2.38 or newer; other systems get the theme, with rebuild instructions in `plank/README.md`. Log out and back in to load the renderer. Uninstall restores the previous theme, settings and launcher from backups; the shared Plank package remains installed.
+
+## Clock typography
+
+![The bundled clock typography](media/clock-fonts.png)
+
+The clock includes fixed font faces for “A quieter,” the serif italic **today**, the thin digits and AM/PM, and the date. The installer checks the exact selected font files rather than accepting a fallback family. New installs use a 12-hour clock; existing preferences are preserved. Disable **24-hour clock** in the clock’s settings to show AM/PM.
 
 ## Set your location
 
@@ -98,7 +107,7 @@ Weather and air-quality requests send the configured coordinates to **Open-Meteo
 
 ## Troubleshooting
 
-- **Clock font looks wrong:** the package includes Baskervville Italic for “today” and Work Sans for “A quieter” and the time. Re-run the updated installer, then log out and back in. Fonts are registered and checked before the cards are enabled.
+- **Clock font looks wrong:** v1.1.1 includes dedicated static faces derived from Baskervville Italic, Work Sans and Inter for every part of the clock. Re-run the updated installer, then log out and back in. Fonts are registered and checked before the cards are enabled.
 - **Cards do not appear:** log out and back in; check Cinnamon's Desklets window for Silent Horizon. Enable two instances, setting one to Clock and one to Weather.
 - **Music is missing:** start playback in an MPRIS-compatible player or browser. The media component lives in the taskbar and hides when inactive.
 - **Visualizer is empty:** check that `cava` and `pactl` are installed and a PulseAudio-compatible playback monitor exists.

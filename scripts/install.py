@@ -270,11 +270,18 @@ def refresh_fonts(home):
     if not shutil.which('fc-cache') or not shutil.which('fc-match'):
         raise RuntimeError('fontconfig is required. Install it before using --no-deps.')
     subprocess.run(['fc-cache', '-f', str(home / '.local/share/fonts/silent-horizon')], check=True)
-    for pattern, family in [('Baskervville:style=Italic', 'Baskervville'), ('Work Sans:weight=light', 'Work Sans'), ('Inter', 'Inter')]:
-        resolved = run(['fc-match', '-f', '%{family}', pattern])
-        if family not in resolved.split(','):
-            raise RuntimeError(f'Font {family} was not registered (resolved to {resolved}).')
-    print('Clock fonts registered: Baskervville Italic, Work Sans and Inter.')
+    faces = [('Silent Horizon Lead', 'SilentHorizonLead.ttf'),
+             ('Silent Horizon Time', 'SilentHorizonTime.ttf'),
+             ('Silent Horizon Today:style=Italic', 'SilentHorizonToday.ttf'),
+             ('Silent Horizon Date', 'SilentHorizonDate.ttf')]
+    for pattern, filename in faces:
+        resolved = Path(run(['fc-match', '-f', '%{file}', pattern]))
+        expected = home / '.local/share/fonts/silent-horizon/clock' / filename
+        if resolved.resolve() != expected.resolve():
+            raise RuntimeError(f'Clock font {pattern} resolved to {resolved}, expected {expected}. '
+                               'Check custom fontconfig rules, then retry installation.')
+    print('Exact clock faces verified: lead, serif italic today, thin digits, and date.')
+
 
 
 def main():

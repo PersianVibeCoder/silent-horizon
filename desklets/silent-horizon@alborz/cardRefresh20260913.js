@@ -151,8 +151,19 @@ var install=function(a){
  a._renderer=new Renderer(a._path);a._edge.hide();if(a._edgeTimer){Mainloop.source_remove(a._edgeTimer);a._edgeTimer=0;}
  a._rightLayout=function(){const l=layout(this._state);this._root.remove_all_transitions();this._root.set_clip_to_allocation(false);this._root.set_size(Math.ceil((320+PAD*2)*this.scale),Math.ceil(l.height*this.scale));this._area.set_size(Math.ceil((320+PAD*2)*this.scale),Math.ceil(l.height*this.scale));this._edge.hide();this._buildButtons();if(this._glassOverlay){this._glassOverlay.set_size(this._area.width,this._area.height);this._root.set_child_above_sibling(this._glassOverlay,null);this._glassOverlay.queue_repaint();}this._area.queue_repaint();};
  a._refreshCard=function(){
+  if(this._disposed)return;
+  const now=GLib.get_monotonic_time();
+  if(this._refreshRequestedAt && now-this._refreshRequestedAt<1000000)return;
+  this._refreshRequestedAt=now;
   this._lastMinute=null;this._rightMinute=null;this._forecastKey=null;this._skyKey=null;this._lastPaintKey=null;
-  if(this._process)this._command('refresh');else this._startService();
+  if(this._process){
+   const proc=this._process,bytes=imports.byteArray.fromString(JSON.stringify({action:'refresh'})+'\n');
+   try{proc.get_stdin_pipe().write_all_async(bytes,GLib.PRIORITY_DEFAULT,null,(stream,result)=>{
+    try{stream.write_all_finish(result);}catch(e){
+     if(!this._disposed&&this._process===proc){this._stopService();this._startService();}
+    }
+   });}catch(e){this._stopService();this._startService();}
+  }else this._startService();
   if(this._state.systemExpanded){this._stopSystem();this._startSystem();}
   this._tick();this._area.queue_repaint();
  };
@@ -169,7 +180,8 @@ var install=function(a){
   if(this._skyDragSignal){global.stage.disconnect(this._skyDragSignal);this._skyDragSignal=0;}
   for(const b of this._buttons){if(Main.layoutManager.isTrackingChrome(b))Main.layoutManager.untrackChrome(b);b.destroy();}this._buttons=[];this._planetButtons=[];this._skyScene=null;
   const l=layout(this._state),add=(x,y,w,h,label,fn)=>{const b=new St.Button({reactive:true,can_focus:true,accessible_name:label,style:'background:transparent;border:none;padding:0;border-radius:8px;'});b.set_position((x+PAD)*this.scale,(y+PAD)*this.scale);b.set_size(w*this.scale,h*this.scale);b.connect('clicked',()=>fn(b));b.connect('key-focus-in',()=>b.set_style('background:rgba(111,191,230,0.1);border:1px solid rgba(132,212,244,0.6);padding:0;border-radius:8px;'));b.connect('key-focus-out',()=>b.set_style('background:transparent;border:none;padding:0;border-radius:8px;'));this._root.add_child(b);this._buttons.push(b);return b;};
-  if(this._state.weatherExpanded)add(277,4,32,34,'Collapse Weather',()=>this._toggleWeather());else add(0,0,245,44,'Expand Weather',()=>this._toggleWeather());
+  add(277,4,32,34,this._state.weatherExpanded?'Collapse Weather':'Expand Weather',()=>this._toggleWeather());
+  if(!this._state.weatherExpanded)add(0,0,245,44,'Expand Weather',()=>this._toggleWeather());
   const refresh=add(247,5,28,33,'Refresh weather, air quality, Sun, Moon and planets',()=>this._refreshCard());
   new imports.ui.tooltips.Tooltip(refresh,'Refresh all · updates also run automatically');
   if(this._state.weatherExpanded){add(16,116,288,223,'Weather details',b=>this._showDetails('weather',b));

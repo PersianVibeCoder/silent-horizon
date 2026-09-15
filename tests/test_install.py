@@ -155,6 +155,25 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(settings.data, original)
             self.assertFalse((home / '.config/autostart/plank.desktop').exists())
 
+    def test_exact_clock_faces_in_isolated_fontconfig(self):
+        import os
+        import shutil
+        from unittest.mock import patch
+        if not shutil.which('fc-match'):
+            self.skipTest('fontconfig not installed')
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            fonts = home / '.local/share/fonts/silent-horizon'
+            shutil.copytree(ROOT / 'fonts', fonts)
+            cfg = home / 'fonts.conf'
+            cfg.write_text(f'<fontconfig><dir>{fonts}</dir><cachedir>{home}/cache</cachedir></fontconfig>')
+            with patch.dict(os.environ, {'HOME': str(home), 'FONTCONFIG_FILE': str(cfg)}):
+                mod.refresh_fonts(home)
+                # With the actual italic face missing, another family must not pass.
+                (fonts / 'clock/SilentHorizonToday.ttf').unlink()
+                with self.assertRaisesRegex(RuntimeError, 'Silent Horizon Today'):
+                    mod.refresh_fonts(home)
+
     def test_dry_run(self):
         result = subprocess.run(['bash', str(ROOT / 'install.sh'), '--dry-run'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)

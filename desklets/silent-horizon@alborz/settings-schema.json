@@ -44,7 +44,7 @@
   },
   "use24": {
     "type": "switch",
-    "default": true,
+    "default": false,
     "description": "24-hour clock",
     "dependency": "role=clock"
   },
