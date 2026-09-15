@@ -2,11 +2,11 @@
 
 A quieter desktop for **Linux Mint Cinnamon**. Weather, a living sky, a delicate clock, and music that finds its place in the taskbar.
 
-https://github.com/user-attachments/assets/f5927e2a-a41b-4434-9961-06dbaee9f868
+https://github.com/user-attachments/assets/019d956c-68e1-4fb9-8cfe-adb76fe7076f
 
 ![Silent Horizon desktop with Gemini Blue wallpaper](media/desktop.jpg)
 
-**[Watch the 48-second preview](https://github.com/PersianVibeCoder/silent-horizon/releases/download/v1.1.1/Silent-Horizon-Preview.mp4)** · **[Download the complete installer ZIP](https://github.com/PersianVibeCoder/silent-horizon/releases/latest/download/silent-horizon.zip)**
+**[Watch the 48-second preview](https://github.com/PersianVibeCoder/silent-horizon/releases/download/v1.1.2/Silent-Horizon-Preview.mp4)** · **[Download the complete installer ZIP](https://github.com/PersianVibeCoder/silent-horizon/releases/latest/download/silent-horizon.zip)**
 
 The installer ZIP includes the full-resolution **Gemini Blue wallpaper**, applets, desklets, fonts and the Quiet Glass Plank theme. The showcase video stays on this page and is **not included in the ZIP**.
 
@@ -21,11 +21,13 @@ The installer ZIP includes the full-resolution **Gemini Blue wallpaper**, applet
 - **Quiet Glass dock:** Plank with a matching glass theme, corner lights and a user-local custom renderer on supported systems.
 - **The complete look:** Gemini Blue wallpaper and the fonts used by the cards are included.
 
-![Weather and horizon detail](media/horizon.jpg)
-![The animated card edge, up close](media/glow.jpg)
-![Now Playing in Quiet Line](media/taskbar.jpg)
+![Afternoon-to-night horizon from the showcase](media/horizon.jpg)
+![Now Playing alongside the card glows and ribbon](media/glow.jpg)
+![Blue Hour by Aster Vale in Quiet Line](media/taskbar.jpg)
 
-The 48-second preview runs at 60 fps with an original ambient score, timed transitions and captions. It includes the matching Quiet Glass dock. The preview uses demonstration weather and accelerated time. Its observer coordinates are **0°, 0°**; it does not show the author's location. Playback animation and weather transitions in the presentation are choreographed to demonstrate the design.
+The 48-second preview runs at 60 fps with an original ambient score, timed transitions and captions. The opening shows the clock, cards, taskbar and dock together. The horizon moves from afternoon through sunset into night, and the media close-up pairs the card lighting with the fictional track **Blue Hour** by **Aster Vale**, from **After the Light**. The cover artwork is original. The matching Quiet Glass dock is shown at a restrained scale. The preview uses demonstration weather and accelerated time. Its observer coordinates are **0°, 0°**; it does not show the author's location. Playback animation and weather transitions in the presentation are choreographed to demonstrate the design.
+
+All screenshots on this page are taken from this version of the showcase.
 
 ## Install
 

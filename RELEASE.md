@@ -1,13 +1,13 @@
-# Silent Horizon + Quiet Line · v1.1.1
+# Silent Horizon + Quiet Line · v1.1.2
 
-- Bundle fixed clock font faces for the light headline, serif italic “today,” thin digits/AM-PM and spaced date. Verify the actual font paths at installation to catch fallback fonts.
-- Use 12-hour time on new installs; preserve existing user preferences.
-- Fix the minimized Weather arrow and make refresh writes asynchronous with duplicate-click protection.
-- Keep the original taskbar icons, full-resolution wallpaper, Quiet Glass Plank theme/custom renderer and backup-based uninstaller.
-- Replace the showcase with a 48-second 1080p60 video, original ambient score, smooth transitions and a Quiet Glass dock close-up.
+This release refreshes the presentation and screenshots; it retains v1.1.1’s clock-font and refresh-button fixes.
 
-Download `silent-horizon.zip`, extract it, run `bash install.sh`, then log out and back in. For an existing clock, turn off **24-hour clock** if you want AM/PM. Uninstall with `bash uninstall.sh`.
+- Hold the complete desktop, including the clock and Plank dock, in the opening.
+- Animate the zero-longitude horizon using UTC from afternoon through sunset into night.
+- Showcase the fictional track **Blue Hour** by **Aster Vale**, album **After the Light**, with original matching cover artwork.
+- Pair Now Playing with the actual card glow and animated ribbon; reduce the dock close-up to avoid excessive enlargement.
+- Replace GitHub screenshots with matching frames from the revised 48-second, 60 fps video.
 
-Video files are separate release assets and are not in the installer ZIP. Location defaults remain zero with a blank label.
+The installer includes the wallpaper, fonts, applets, desklets and Quiet Glass dock theme. Videos remain separate assets, outside the ZIP. Location defaults are zero with a blank label.
 
-Validation: ten installer tests, including a font-isolated install and intentional missing-italic failure; clock rendering compared against the original font files without host fonts; refresh button handlers tested with repeated requests and expansion toggles. Distribution-specific font rendering can still vary slightly.
+Install with `bash install.sh`, then log out and back in. Uninstall with `bash uninstall.sh`. Existing user preferences are preserved.
