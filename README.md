@@ -73,6 +73,8 @@ The full installer installs Plank if missing and applies Quiet Glass. Existing p
 
 The clock includes fixed font faces for “A quieter,” the serif italic **today**, the thin digits and AM/PM, and the date. The installer checks the exact selected font files rather than accepting a fallback family. New installs use a 12-hour clock; existing preferences are preserved. Disable **24-hour clock** in the clock’s settings to show AM/PM.
 
+Right-click the clock → **Configure** to change **Headline / today color**, **Time digits color**, **Date color**, and **AM/PM color** independently. Changes apply immediately; existing clock fonts and layout are retained.
+
 ## Set your location
 
 The release starts with **latitude 0, longitude 0, elevation 0 and a blank location label**. It does not automatically detect your location. Until you configure it, weather and astronomy refer to those coordinates, not where you live.
@@ -111,7 +113,7 @@ Weather and air-quality requests send the configured coordinates to **Open-Meteo
 
 - **Clock font looks wrong:** v1.1.1 includes dedicated static faces derived from Baskervville Italic, Work Sans and Inter for every part of the clock. Re-run the updated installer, then log out and back in. Fonts are registered and checked before the cards are enabled.
 - **Cards do not appear:** log out and back in; check Cinnamon's Desklets window for Silent Horizon. Enable two instances, setting one to Clock and one to Weather.
-- **Music is missing:** start playback in an MPRIS-compatible player or browser. The media component lives in the taskbar and hides when inactive.
+- **Music is missing:** update to v1.1.3 or newer and log out/back in. Earlier versions accidentally limited discovery to browsers; desktop Spotify and other MPRIS players are now included. Start playback in the same desktop session. The media component lives in the taskbar and hides when inactive. Sandboxed players must be allowed to expose MPRIS on the session bus.
 - **Visualizer is empty:** check that `cava` and `pactl` are installed and a PulseAudio-compatible playback monitor exists.
 - **Layout needs adjusting:** right-click a desklet, unlock its position, and change its scale or drag it. “Restore recommended layout” repositions it for the current monitor.
 - **Weather is unavailable:** check connectivity and your coordinates; use the refresh button. Cached data may be shown when requests fail.

@@ -17,7 +17,7 @@ class SilentDesklet extends Desklet.Desklet {
         this.Data=imports.quietHorizonData20260911;this.Art=imports.quietHorizonPolish20260911;this.Sky=imports.quietSky;this.Audio=imports.atmosphereAudio;this.A=imports.vendor.astronomy.Astronomy;
         this._renderer=new this.Art.Renderer(metadata.path);this._state={};this._artPaths={};this._artAccents={};this._disposed=false;
         this.settings=new Settings.DeskletSettings(this,metadata.uuid,id);
-        for(let key of ['role','scale','placement','headline','use24','visualizer','city','latitude','longitude','elevation','fahrenheit','details'])
+        for(let key of ['role','scale','placement','headline','clockHeadlineColor','clockTimeColor','clockDateColor','clockPeriodColor','use24','visualizer','city','latitude','longitude','elevation','fahrenheit','details'])
             this.settings.bind(key,key,()=>this._changed());
         this.settings.bind('locked','locked',()=>this._applyLock());
         this.setHeader('Silent Horizon');this.content.set_style('padding:0;margin:0;border:none;background-color:transparent;');
@@ -152,7 +152,7 @@ class SilentDesklet extends Desklet.Desklet {
     _tick(){
         if(this._disposed)return;
         const d=GLib.DateTime.new_now_local(), now=new Date(),minute=Math.floor(now.getTime()/60000);
-        Object.assign(this._state,{details:this.details||this._hover,role:this.role,headline:this.headline,city:this.city,latitude:this.latitude,longitude:this.longitude,elevation:this.elevation,time:d.format(this.use24?'%H:%M':'%I:%M'),period:this.use24?'':d.format('%p'),day:d.format('%A').toUpperCase(),date:d.format('%m.%d.%y'),longDate:d.format('%d %B %Y').toUpperCase(),fahrenheit:this.fahrenheit,localStamp:d.format('%a %d %b %Y · %l:%M %p').replace(/  +/g,' ')});
+        Object.assign(this._state,{details:this.details||this._hover,role:this.role,headline:this.headline,clockHeadlineColor:this.clockHeadlineColor,clockTimeColor:this.clockTimeColor,clockDateColor:this.clockDateColor,clockPeriodColor:this.clockPeriodColor,city:this.city,latitude:this.latitude,longitude:this.longitude,elevation:this.elevation,time:d.format(this.use24?'%H:%M':'%I:%M'),period:this.use24?'':d.format('%p'),day:d.format('%A').toUpperCase(),date:d.format('%m.%d.%y'),longDate:d.format('%d %B %Y').toUpperCase(),fahrenheit:this.fahrenheit,localStamp:d.format('%a %d %b %Y · %l:%M %p').replace(/  +/g,' ')});
         if(this._lastMinute!==minute){
             this._lastMinute=minute;
             if(this.role!=='clock'){

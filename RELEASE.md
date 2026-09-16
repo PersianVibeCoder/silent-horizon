@@ -1,13 +1,12 @@
-# Silent Horizon + Quiet Line · v1.1.2
+# Silent Horizon + Quiet Line · v1.1.3
 
-This release refreshes the presentation and screenshots; it retains v1.1.1’s clock-font and refresh-button fixes.
+- Fix desktop Spotify detection: discover all MPRIS players, including native and instance-suffixed Spotify names, instead of filtering for web browsers.
+- Keep healthy media players available when another player fails discovery.
+- Fix rapid media/refresh commands getting stuck in buffered input.
+- Add independent color pickers for the clock headline/today, digits, date, and AM/PM. Right-click the clock → Configure; changes apply immediately.
 
-- Hold the complete desktop, including the clock and Plank dock, in the opening.
-- Animate the zero-longitude horizon using UTC from afternoon through sunset into night.
-- Showcase the fictional track **Blue Hour** by **Aster Vale**, album **After the Light**, with original matching cover artwork.
-- Pair Now Playing with the actual card glow and animated ribbon; reduce the dock close-up to avoid excessive enlargement.
-- Replace GitHub screenshots with matching frames from the revised 48-second, 60 fps video.
+Validation: private-session DBus integration tests with simulated Spotify and browser peers cover discovery, artwork, pause/next/previous/seek, source selection, player exit/relaunch, and a broken peer. This verifies the MPRIS bridge, not an authenticated Spotify client on every distribution. All 10 installer regressions and refresh-handler checks pass. Clock colors were rendered and inspected with the bundled fonts, including malformed/missing-setting fallbacks.
 
-The installer includes the wallpaper, fonts, applets, desklets and Quiet Glass dock theme. Videos remain separate assets, outside the ZIP. Location defaults are zero with a blank label.
+Download `silent-horizon.zip`, extract, run `bash install.sh` as your desktop user, then log out and back in to reload the updated service. Existing settings are preserved. Change clock colors in Configure. Uninstall with `bash uninstall.sh` to restore backed-up files/settings; shared system packages remain installed.
 
-Install with `bash install.sh`, then log out and back in. Uninstall with `bash uninstall.sh`. Existing user preferences are preserved.
+The wallpaper, fonts and Quiet Glass theme remain included; videos remain outside the ZIP. The existing video preview is linked in the README. New location defaults remain zero with a blank label.

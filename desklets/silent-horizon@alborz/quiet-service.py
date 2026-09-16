@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Browser MPRIS and weather bridge. All blocking IO stays outside Cinnamon."""
+"""Desktop/browser MPRIS and weather bridge. All blocking IO stays outside Cinnamon."""
 import base64
 import hashlib
 import io
@@ -23,7 +23,6 @@ RESULTS = queue.Queue()
 BUS = Gio.bus_get_sync(Gio.BusType.SESSION, None)
 PLAYER = 'org.mpris.MediaPlayer2.Player'
 PATH = '/org/mpris/MediaPlayer2'
-browser_re = re.compile(r'firefox|chrome|chromium|brave|edge|vivaldi|opera', re.I)
 
 def emit(kind, **values):
     print(json.dumps(dict(kind=kind, **values), ensure_ascii=False), flush=True)
@@ -128,6 +127,7 @@ def main():
     next_weather=0; next_discovery=0; next_media=0
     last_wall=time.time(); weather_worker=None; air_worker=None
     names=[]; identities={}; selected=None; preferred=None; attempted_art=set(); active_seen={}; last_status={}
+    input_buffer=b''
     sel=selectors.DefaultSelector(); sel.register(sys.stdin, selectors.EVENT_READ)
     while True:
         now=time.monotonic()
@@ -146,8 +146,11 @@ def main():
                 names=[n for n in all_names if n.startswith('org.mpris.MediaPlayer2.')]
                 for name in names:
                     if name not in identities:
-                        identities[name]=props(name,'org.mpris.MediaPlayer2').get('Identity',name)
-                names=[n for n in names if browser_re.search(n+' '+identities.get(n,''))]
+                        try:
+                            identities[name]=props(name,'org.mpris.MediaPlayer2').get('Identity',name)
+                        except Exception:
+                            # One disappearing/unresponsive player must not hide the others.
+                            continue
                 identities={n:v for n,v in identities.items() if n in all_names}
             except Exception:
                 names=[]
@@ -160,7 +163,7 @@ def main():
                     if status=='Playing' and last_status.get(name)!='Playing': active_seen[name]=now
                     last_status[name]=status
                     if status=='Stopped' or not m.get('xesam:title'): continue
-                    url=m.get('xesam:url',''); identity=identities.get(name,'Browser')
+                    url=m.get('xesam:url',''); identity=identities.get(name,name.removeprefix('org.mpris.MediaPlayer2.'))
                     source='YouTube Music' if 'music.youtube.' in url else 'YouTube' if 'youtube.' in url or 'youtu.be' in url else identity
                     sessions.append(dict(name=name, title=m.get('xesam:title',''),
                         artist=' · '.join(m.get('xesam:artist',[])), album=m.get('xesam:album',''),
@@ -186,25 +189,28 @@ def main():
             kind,value=RESULTS.get_nowait(); emit(kind,**value)
             if kind=='weatherError': next_weather=min(next_weather,now+60)
         if sel.select(.1):
-            line=sys.stdin.readline()
-            if not line: break
-            try:
-                command=json.loads(line)
-                if command.get('action')=='refresh':
-                    next_weather=0; next_discovery=0; next_media=0
-                elif command.get('action')=='select':
-                    choice=command.get('fraction')
-                    if not choice or choice in names: preferred=choice or None
-                    next_media=0
-                elif selected and command.get('action') in ('PlayPause','Next','Previous'):
-                    call(selected,PATH,PLAYER,command['action'])
-                    next_media=0
-                elif selected and command.get('action')=='seek' and media and media['canSeek'] and media['duration']>0:
-                    fraction=max(0,min(1,float(command['fraction'])))
-                    call(selected,PATH,PLAYER,'SetPosition',GLib.Variant('(ox)',(media['trackid'],int(fraction*media['duration']*1e6))))
-                    next_media=0
-            except Exception as exc:
-                emit('mediaError',message=str(exc)[:160])
+            chunk=os.read(sys.stdin.fileno(),65536)
+            if not chunk: break
+            input_buffer+=chunk
+            while b'\n' in input_buffer:
+                line,input_buffer=input_buffer.split(b'\n',1)
+                try:
+                    command=json.loads(line)
+                    if command.get('action')=='refresh':
+                        next_weather=0; next_discovery=0; next_media=0
+                    elif command.get('action')=='select':
+                        choice=command.get('fraction')
+                        if not choice or choice in names: preferred=choice or None
+                        next_media=0
+                    elif selected and command.get('action') in ('PlayPause','Next','Previous'):
+                        call(selected,PATH,PLAYER,command['action'])
+                        next_media=0
+                    elif selected and command.get('action')=='seek' and media and media['canSeek'] and media['duration']>0:
+                        fraction=max(0,min(1,float(command['fraction'])))
+                        call(selected,PATH,PLAYER,'SetPosition',GLib.Variant('(ox)',(media['trackid'],int(fraction*media['duration']*1e6))))
+                        next_media=0
+                except Exception as exc:
+                    emit('mediaError',message=str(exc)[:160])
 
 if __name__=='__main__':
     try: main()

@@ -48,6 +48,30 @@
     "description": "24-hour clock",
     "dependency": "role=clock"
   },
+  "clockHeadlineColor": {
+    "type": "colorchooser",
+    "default": "#F6F3E8",
+    "description": "Headline / today color",
+    "dependency": "role=clock"
+  },
+  "clockTimeColor": {
+    "type": "colorchooser",
+    "default": "#F6F3E8",
+    "description": "Time digits color",
+    "dependency": "role=clock"
+  },
+  "clockDateColor": {
+    "type": "colorchooser",
+    "default": "#6EB0DB",
+    "description": "Date color",
+    "dependency": "role=clock"
+  },
+  "clockPeriodColor": {
+    "type": "colorchooser",
+    "default": "#85ADC7",
+    "description": "AM/PM color",
+    "dependency": "role=clock"
+  },
   "visualizer": {
     "type": "switch",
     "default": true,

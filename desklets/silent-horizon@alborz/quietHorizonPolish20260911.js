@@ -8,6 +8,11 @@ const TAU=Math.PI*2;
 const Data=imports.quietHorizonData20260911;
 const WHITE=[.96,.97,1], CYAN=[.27,.9,1], BLUE=[.24,.55,1], GOLD=[1,.79,.28], MUTED=[.71,.75,.83];
 var SIZES={clock:[600,360],dashboard:[344,634],music:[344,244]};
+function clockInk(value,fallback){
+    const rgba=new Gdk.RGBA();
+    try{if(typeof value==='string'&&rgba.parse(value))return [rgba.red,rgba.green,rgba.blue];}catch(e){}
+    return fallback;
+}
 function color(cr,c,a=1){cr.setSourceRGBA(...c,a);}
 function circle(cr,x,y,r,c,a=1){cr.newPath();cr.arc(x,y,r,0,TAU);color(cr,c,a);cr.fill();}
 function line(cr,x,y,xx,yy,c=WHITE,a=1,w=1){cr.newPath();cr.moveTo(x,y);cr.lineTo(xx,yy);color(cr,c,a);cr.setLineWidth(w);cr.stroke();}
@@ -159,11 +164,11 @@ var Renderer=class Renderer {
         if(quote.toUpperCase()==='A QUIETER TODAY')quote='A quieter today';
         const split=quote.lastIndexOf(' ');
         const lead=split<0?'':quote.slice(0,split),last=split<0?quote:quote.slice(split+1);
-        label(lead,92,46,32,'Silent Horizon Lead',ivory,155);
-        label(last,90,81,60,'Silent Horizon Today Italic',ivory,155);
-        const timeWidth=label(s.time,382,39,114,'Silent Horizon Time',ivory,300,-4,'center',true);
-        if(s.period)label(s.period,382+timeWidth/2,127,20,'Silent Horizon Time',periodBlue,52,1,'right');
-        label(s.day+' / '+s.date,300,174,10,'Silent Horizon Date',blue,400,3.2,'center');
+        label(lead,92,46,32,'Silent Horizon Lead',clockInk(s.clockHeadlineColor,ivory),155);
+        label(last,90,81,60,'Silent Horizon Today Italic',clockInk(s.clockHeadlineColor,ivory),155);
+        const timeWidth=label(s.time,382,39,114,'Silent Horizon Time',clockInk(s.clockTimeColor,ivory),300,-4,'center',true);
+        if(s.period)label(s.period,382+timeWidth/2,127,20,'Silent Horizon Time',clockInk(s.clockPeriodColor,periodBlue),52,1,'right');
+        label(s.day+' / '+s.date,300,174,10,'Silent Horizon Date',clockInk(s.clockDateColor,blue),400,3.2,'center');
     }
     glass(cr,s,scale,height){
         const spec=s.backdrop,key=JSON.stringify([scale,spec,height]);
