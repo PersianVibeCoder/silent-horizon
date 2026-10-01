@@ -42,7 +42,13 @@ var apply=function(a){
  const old=a._glassOverlay;const [w,h]=old.get_size();old.destroy();
  a._glassOverlay=new St.DrawingArea({reactive:false,width:w,height:h});a._root.add_child(a._glassOverlay);
  a._glassOverlay.connect('repaint',area=>{const c=area.get_context();try{c.scale(a.scale,a.scale);c.translate(Art.PAD,Art.PAD);const l=Art.layout(a._state),phase=(GLib.get_monotonic_time()/1e6/48)%1;
- const draw=(h,p)=>{c.pushGroup();c.pushGroup();Art.foreground(c,320,h);c.popGroupToSource();c.paintWithAlpha(.15);corners(c,320,h);Art.animatedEdge(c,h,p);c.popGroupToSource();c.paintWithAlpha(h<=44?.75:1);};
+ const cacheKey=[a.scale,l.card,l.system,a._state.systemExpanded,a._glassOverlay.width,a._glassOverlay.height].join(':');
+ if(a._rimStaticKey!==cacheKey){a._rimStaticKey=cacheKey;a._rimStatic=[];}
+ let index=0;
+ const draw=(h,p)=>{c.pushGroup();
+  if(!a._rimStatic[index]){c.pushGroup();c.pushGroup();Art.foreground(c,320,h);c.popGroupToSource();c.paintWithAlpha(.15);corners(c,320,h);a._rimStatic[index]=c.popGroup();}
+  c.setSource(a._rimStatic[index++]);c.paint();Art.animatedEdge(c,h,p);c.popGroupToSource();c.paintWithAlpha(h<=44?.75:1);
+ };
  draw(l.card,phase);c.translate(0,l.system);draw(a._state.systemExpanded?204:44,(phase+.35)%1);
  }finally{c.$dispose();}});
  a._area.queue_repaint();a._glassOverlay.queue_repaint();

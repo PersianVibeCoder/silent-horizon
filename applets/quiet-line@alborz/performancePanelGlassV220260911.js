@@ -17,6 +17,7 @@ var PerformancePanel=class PerformancePanel {
   this.owner=owner;this.button=button;this.opened=false;this.dead=false;this.history=[];this.diskIndex=0;
   this.actor=new St.Widget({reactive:true,can_focus:true,width:940,height:460,visible:false,style:'background:none;border:0;box-shadow:none;'});
   Main.layoutManager.addChrome(this.actor,{affectsInputRegion:true,affectsStruts:false});
+  this.activity=new imports.quietActivity.ActivityMonitor(this.actor,()=>{if(this.opened&&this.activity.active)this.start();else this.stop();});
   this.addSheen();
   label(this.actor,'P E R F O R M A N C E',24,22,15,'#45e5ff');
   this.status=label(this.actor,'Connecting to your system…',590,25,12,'#9aaebd',310);
@@ -90,11 +91,11 @@ var PerformancePanel=class PerformancePanel {
  }
  close(){this.cancelOpen();this.cancelClose();if(!this.opened)return;this.opened=false;if(this.modal){Main.popModal(this.actor);this.modal=false;}this.button.remove_style_pseudo_class('active');this.actor.remove_all_transitions();this.actor.ease({opacity:0,translation_y:-10,duration:180,mode:Clutter.AnimationMode.EASE_IN_OUT_QUAD,onComplete:()=>{if(!this.opened){this.actor.hide();this.stop();}}});}
  start(){
-  if(this.process)return;this.status.set_text('Connecting to your system…');this.history=[];
+  if(this.process||this.dead||!this.opened||!this.activity.active)return;this.status.set_text('Connecting to your system…');this.history=[];
   try{const p=Gio.Subprocess.new(['/usr/bin/python3',this.owner.path+'/performance-worker.py'],Gio.SubprocessFlags.STDOUT_PIPE|Gio.SubprocessFlags.STDERR_SILENCE);this.process=p;const cancel=new Gio.Cancellable();this.cancel=cancel;const stream=new Gio.DataInputStream({base_stream:p.get_stdout_pipe()});
    const next=()=>stream.read_line_async(0,cancel,(s,res)=>{if(this.dead||this.process!==p)return;try{const [v]=s.read_line_finish(res);if(!v){this.status.set_text('Readings unavailable · reopen to retry');return;}this.update(JSON.parse(ByteArray.toString(v)));next();}catch(e){if(!cancel.is_cancelled()){this.status.set_text('Readings unavailable');global.logError(e,'Performance dashboard');}}});next();p.wait_async(null,(proc,res)=>{try{proc.wait_finish(res);}catch(e){}if(this.process===p){this.process=null;cancel.cancel();}});
   }catch(e){this.status.set_text('Unable to read system sensors');global.logError(e);}
  }
  stop(){if(this.cancel){this.cancel.cancel();this.cancel=null;}if(this.process){const p=this.process;this.process=null;try{p.send_signal(15);}catch(e){}}}
- destroy(){if(this.dead)return;this.dead=true;if(this.modal){Main.popModal(this.actor);this.modal=false;}this.cancelOpen();this.cancelClose();this.stop();for(const [a,id] of this.signals)a.disconnect(id);this.actor.remove_all_transitions();Main.layoutManager.removeChrome(this.actor);this.actor.destroy();}
+ destroy(){if(this.dead)return;this.dead=true;this.activity.destroy();if(this.modal){Main.popModal(this.actor);this.modal=false;}this.cancelOpen();this.cancelClose();this.stop();for(const [a,id] of this.signals)a.disconnect(id);this.actor.remove_all_transitions();Main.layoutManager.removeChrome(this.actor);this.actor.destroy();}
 };

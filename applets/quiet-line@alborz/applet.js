@@ -81,6 +81,8 @@ class QuietLine extends Applet.Applet {
   this.searchButton=this._button(searchRow,'Search apps and recent files · Super K',()=>this.openSearch(),278);this.box.add_child(this.searchButton);
   this._makeSearch();this._bindKey();
   const sources=new PopupMenu.PopupMenuItem('Browser sources and playback details');sources.connect('activate',()=>host()?._showDetails('music',this.actor));this._applet_context_menu.addMenuItem(sources);
+  if(!imports.searchPath.includes(this.path))imports.searchPath.unshift(this.path);
+  this._activity=new imports.quietActivity.ActivityMonitor(this.actor,()=>this._updateMedia());
   this._updateMedia();this._repeat(1,()=>this._updateMedia());
  }
  _bindKey(){if(this.role!=='center'||!this.searchMenu)return;Main.keybindingManager.addHotKey('quiet-line-search',this.searchKey,()=>this.openSearch());}
@@ -116,7 +118,7 @@ class QuietLine extends Applet.Applet {
   if(active){const key=JSON.stringify([m.title,m.artist,m.status,m.canPrevious,m.canNext,m.canPlay,m.canPause,s.artPath,this.visualizer]);if(key!==this._mediaKey){this._mediaKey=key;this.title.set_text(m.title||m.source||'Browser audio');this.artist.set_text(m.artist||m.source||'');const measure=label=>{const layout=label.clutter_text.get_layout().copy();layout.set_width(-1);layout.set_ellipsize(Pango.EllipsizeMode.NONE);layout.set_text(label.text,-1);return layout.get_pixel_size()[0];};const natural=Math.max(measure(this.title),measure(this.artist));this.mediaLabels.set_width(Math.min(220,Math.ceil(natural)+2));this.playIcon.gicon=Gio.icon_new_for_string(this.path+'/uicons/'+(this._playing?'pause':'play')+'-symbolic.svg');for(const [button,enabled] of [[this.prev,m.canPrevious],[this.next,m.canNext],[this.play,m.canPlay||m.canPause]]){button.reactive=!!enabled;button.opacity=enabled?255:65;}
     this.set_applet_tooltip((m.title||'')+'\n'+(m.artist||m.source||''));if(this._artPath!==s.artPath){this._artPath=s.artPath;this._loadCover(s.artPath);}this._accent=s.artAccent;this.cover.queue_repaint();}}
   else{this._mediaKey=null;this._accent=null;this.set_applet_tooltip('Search apps and recent files · Super K');}
-  if(this._playing&&this.visualizer){if(!this._audio)this._startAudio();}else{this._stopAudio();this._bands=[];this.spectrum.queue_repaint();}
+  if(this._playing&&this.visualizer&&(this._activity?.active??this.actor.mapped)){if(!this._audio)this._startAudio();}else{this._stopAudio();this._bands=[];this.spectrum.queue_repaint();}
  }
  _loadCover(path){
   if(this._artCancel)this._artCancel.cancel();this._artCancel=new Gio.Cancellable();const cancel=this._artCancel;this._pixbuf=null;this.cover.queue_repaint();if(!path)return;
@@ -126,12 +128,12 @@ class QuietLine extends Applet.Applet {
  _drawSpectrum(a){const c=a.get_context();try{this._softBands=this._softBands||Array(9).fill(0);for(let i=0;i<9;i++){const raw=this._playing?Math.max(this._bands[i*2]||0,this._bands[i*2+1]||0):0;const previous=this._softBands[i];const v=previous+(raw-previous)*(raw>previous?.48:.20);this._softBands[i]=v;const h=1.4+Math.pow(v,.7)*10;c.setSourceRGBA(...(i===5?[.87,.76,.52]:[.48,.78,.88]),v>.01?.72:.22);round(c,1+i*3.7,8-h/2,1.3,h,.65);c.fill();}}finally{c.$dispose();}}
 
  _startAudio(){
-  if(this._dead||this._audio)return;try{const p=Gio.Subprocess.new(['/usr/bin/python3',this.path+'/audio-spectrum.py'],Gio.SubprocessFlags.STDOUT_PIPE|Gio.SubprocessFlags.STDIN_PIPE|Gio.SubprocessFlags.STDERR_SILENCE);this._audio=p;const cancel=new Gio.Cancellable();this._audioCancel=cancel;const input=new Gio.DataInputStream({base_stream:p.get_stdout_pipe()});
+  if(this._dead||this._audio||Date.now()<(this._audioRetryAt||0))return;this._audioRetryAt=Date.now()+5000;try{const p=Gio.Subprocess.new(['/usr/bin/python3',this.path+'/audio-spectrum.py'],Gio.SubprocessFlags.STDOUT_PIPE|Gio.SubprocessFlags.STDIN_PIPE|Gio.SubprocessFlags.STDERR_SILENCE);this._audio=p;const cancel=new Gio.Cancellable();this._audioCancel=cancel;const input=new Gio.DataInputStream({base_stream:p.get_stdout_pipe()});
    const read=()=>input.read_line_async(0,cancel,(stream,res)=>{if(this._dead||this._audio!==p)return;try{const [bytes]=stream.read_line_finish(res);if(!bytes)return;const data=JSON.parse(ByteArray.toString(bytes));this._bands=data.bands||[];if(this.actor.mapped)this.spectrum.queue_repaint();read();}catch(e){if(!cancel.is_cancelled())global.logError(e);}});read();
    p.wait_async(null,(proc,res)=>{try{proc.wait_finish(res);}catch(e){}if(this._audio===p){this._audio=null;cancel.cancel();}});
   }catch(e){global.logError(e);}
  }
- _stopAudio(){if(this._audioCancel){this._audioCancel.cancel();this._audioCancel=null;}if(this._audio){const p=this._audio;this._audio=null;try{p.get_stdin_pipe().close(null);p.send_signal(15);}catch(e){}}}
+ _stopAudio(){this._audioRetryAt=0;if(this._audioCancel){this._audioCancel.cancel();this._audioCancel=null;}if(this._audio){const p=this._audio;this._audio=null;try{p.get_stdin_pipe().close(null);p.send_signal(15);}catch(e){}}}
  _performance(){
   this.actor.set_style('margin:0;padding:0;background:none;border:none;');this.box.set_style('padding:0;');
   const row=new St.BoxLayout({style:'spacing:8px;',y_align:Clutter.ActorAlign.CENTER});
@@ -181,7 +183,7 @@ class QuietLine extends Applet.Applet {
  on_applet_added_to_panel(){if(this.role==='navigation'){this._theme();this._delayed=Mainloop.timeout_add_seconds(2,()=>{this._delayed=null;if(!this._dead)this._theme();return false;});}if(this.role==='controls'){this._syncTray();this._repeat(3,()=>this._syncTray());}}
  on_applet_removed_from_panel(){
   imports.ui.appletManager.applets[UUID].volumeIconGuard20260912.unbind(this);
-  this._dead=true;if(this.performance)this.performance.destroy();if(this._dividerClock){this._dividerClock.stop();this._dividerClock=null;}if(this._divider){this._divider.destroy();this._divider=null;}this._stopAudio();if(this._artCancel)this._artCancel.cancel();for(const id of this._timers)Mainloop.source_remove(id);if(this._delayed)Mainloop.source_remove(this._delayed);for(const [o,id] of this._signals)o.disconnect(id);for(const t of this._tips)t.destroy();
+  this._dead=true;this._activity?.destroy();if(this.performance)this.performance.destroy();if(this._dividerClock){this._dividerClock.stop();this._dividerClock=null;}if(this._divider){this._divider.destroy();this._divider=null;}this._stopAudio();if(this._artCancel)this._artCancel.cancel();for(const id of this._timers)Mainloop.source_remove(id);if(this._delayed)Mainloop.source_remove(this._delayed);for(const [o,id] of this._signals)o.disconnect(id);for(const t of this._tips)t.destroy();
   if(this.role==='center')Main.keybindingManager.removeHotKey('quiet-line-search');if(this.calendarMenu)this.calendarMenu.destroy();if(this.searchMenu)this.searchMenu.destroy();if(this.controlMenu)this.controlMenu.destroy();
   if(this._calendarSource){const a=applet('calendar@cinnamon.org');if(a){a.menu.close();a.menu.sourceActor=this._calendarSource;}}
   for(const [a,s] of this._styles){try{a.set_style(s||'');}catch(e){}}for(const [a,v] of this._vis){try{a.visible=v;}catch(e){}}if(this._nativeMenu)this._nativeMenu._updateIconAndLabel();this.settings.finalize();

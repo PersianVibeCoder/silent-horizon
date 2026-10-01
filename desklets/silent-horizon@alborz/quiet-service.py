@@ -127,9 +127,26 @@ def main():
     next_weather=0; next_discovery=0; next_media=0
     last_wall=time.time(); weather_worker=None; air_worker=None
     names=[]; identities={}; selected=None; preferred=None; attempted_art=set(); active_seen={}; last_status={}
+    # Consume native D-Bus signals; polling is only a recovery path for peers
+    # that fail to emit PropertiesChanged/Seeked or appear during a reconnect.
+    def owners_changed(connection, sender, path, interface, signal, params):
+        nonlocal next_discovery, next_media
+        if params.unpack()[0].startswith('org.mpris.MediaPlayer2.'):
+            next_discovery=0; next_media=0
+    def player_changed(connection, sender, path, interface, signal, params):
+        nonlocal next_media
+        if signal!='PropertiesChanged' or params.unpack()[0]==PLAYER:
+            next_media=0
+    subscriptions=[
+        BUS.signal_subscribe('org.freedesktop.DBus','org.freedesktop.DBus','NameOwnerChanged','/org/freedesktop/DBus',None,Gio.DBusSignalFlags.NONE,owners_changed),
+        BUS.signal_subscribe(None,'org.freedesktop.DBus.Properties','PropertiesChanged',PATH,None,Gio.DBusSignalFlags.NONE,player_changed),
+        BUS.signal_subscribe(None,PLAYER,'Seeked',PATH,None,Gio.DBusSignalFlags.NONE,player_changed),
+    ]
+    context=GLib.MainContext.default()
     input_buffer=b''
     sel=selectors.DefaultSelector(); sel.register(sys.stdin, selectors.EVENT_READ)
     while True:
+        while context.pending(): context.iteration(False)
         now=time.monotonic()
         wall=time.time()
         if abs(wall-last_wall)>60: next_weather=0
@@ -154,7 +171,7 @@ def main():
                 identities={n:v for n,v in identities.items() if n in all_names}
             except Exception:
                 names=[]
-            next_discovery=now+2
+            next_discovery=now+30
         if now>=next_media:
             sessions=[]
             for name in names:
@@ -184,11 +201,11 @@ def main():
             if media and media['artwork'] and media['artKey'] not in attempted_art:
                 attempted_art.add(media['artKey'])
                 threading.Thread(target=artwork,args=(media['artwork'],media['artKey'],media['pageUrl']),daemon=True).start()
-            next_media=now+1
+            next_media=now+5
         while not RESULTS.empty():
             kind,value=RESULTS.get_nowait(); emit(kind,**value)
             if kind=='weatherError': next_weather=min(next_weather,now+60)
-        if sel.select(.1):
+        if sel.select(.25):
             chunk=os.read(sys.stdin.fileno(),65536)
             if not chunk: break
             input_buffer+=chunk

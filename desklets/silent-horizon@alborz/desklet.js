@@ -31,7 +31,7 @@ class SilentDesklet extends Desklet.Desklet {
         this._spectrum.connect('repaint',()=>{if(this._disposed)return;let cr=this._spectrum.get_context();this.Audio.draw(cr,...this._spectrum.get_surface_size(),this._bands,1,60);cr.$dispose();});
         this._edge=new St.DrawingArea({reactive:false});this._root.add_child(this._edge);
         this._edge.connect('repaint',()=>{if(this._disposed)return;const cr=this._edge.get_context();try{this.Art.drawEdge(cr,this.scale,this._edge.width,this._edge.height,((GLib.get_monotonic_time()/1e6)/48+(this.role==='music'?.35:0))%1);}finally{cr.$dispose();}});
-        this._edgeTimer=Mainloop.timeout_add(100,()=>{if(this._disposed)return false;if(this.role!=='clock'&&this.actor.mapped){this._edge.set_size(this._area.width,this.role==='dashboard'?574*this.scale:this._area.height);this._edge.queue_repaint();}return true;});
+        this._edgeTimer=0;
         this._buttons=[];this._buildButtons();
         this.actor.connect('enter-event',()=>{if(this.role==='panorama'){this._hover=true;this._tick();}return Clutter.EVENT_PROPAGATE;});
         this.actor.connect('leave-event',()=>{if(this.role==='panorama'){this._hover=false;this._tick();}return Clutter.EVENT_PROPAGATE;});
@@ -51,9 +51,31 @@ class SilentDesklet extends Desklet.Desklet {
         }
         const skyInfo=new PopupMenu.PopupMenuItem('Dark / Dawn: astronomical twilight; Moon: the relevant night',{reactive:false});this._menu.addMenuItem(skyInfo);
         this._changed();
-        this._timer=Mainloop.timeout_add_seconds(1,()=>{this._tick();return !this._disposed;});
+        this._timer=0;
         this._cardArt=imports.cardRefresh20260913;this._cardArt.install(this);
         imports.cardGlowAligned20260913.apply(this);
+        this._renderer.onImageReady=()=>{if(!this._disposed)this._area.queue_repaint();};
+        this._activity=new imports.quietActivity.ActivityMonitor(this.actor,()=>this._syncActivity());
+        this._syncActivity();this._ticksReady=true;this._scheduleTick();
+    }
+    _scheduleTick(){
+        if(this._timer)Mainloop.source_remove(this._timer);
+        this._timer=0;if(this._disposed)return;
+        const delay=this.role==='music'?1000:60000-Date.now()%60000+10;
+        this._timer=Mainloop.timeout_add(delay,()=>{this._timer=0;this._tick();this._scheduleTick();return false;});
+    }
+    _syncActivity(){
+        if(this._disposed)return;
+        const active=this._activity?.active??this.actor.mapped;
+        if(this._syncRim)this._syncRim(active);
+        if(this._edgeTimer){Mainloop.source_remove(this._edgeTimer);this._edgeTimer=0;}
+        if(active&&this.role!=='clock'&&!this._rightInstalled)this._edgeTimer=Mainloop.timeout_add(100,()=>{
+            if(this._disposed||!this._activity.active){this._edgeTimer=0;return false;}
+            this._edge.set_size(this._area.width,this._area.height);this._edge.queue_repaint();return true;
+        });
+        if(active&&this._state.systemExpanded)this._startSystem();else this._stopSystem();
+        if(active&&this.role==='music'&&this.visualizer&&this._state.media?.status==='Playing')this._startAudio();else this._stopAudio();
+        if(active){this._tick();this._area.queue_repaint();}
     }
     _applyLock(){
         if(!this._draggable)return;
@@ -109,7 +131,7 @@ class SilentDesklet extends Desklet.Desklet {
         this._buildButtons();this._area.queue_repaint();if(this._state.systemExpanded)this._startSystem();else this._stopSystem();
     }
     _startSystem(){
-        if(this._systemProcess||this._disposed)return;const path=GLib.get_home_dir()+'/.local/share/cinnamon/applets/quiet-line@alborz/performance-worker.py';
+        if(this._systemProcess||this._disposed||this._activity&&!this._activity.active)return;const path=GLib.get_home_dir()+'/.local/share/cinnamon/applets/quiet-line@alborz/performance-worker.py';
         try{const p=Gio.Subprocess.new(['/usr/bin/python3',path],Gio.SubprocessFlags.STDOUT_PIPE|Gio.SubprocessFlags.STDERR_SILENCE);this._systemProcess=p;const cancel=new Gio.Cancellable();this._systemCancel=cancel;const stream=new Gio.DataInputStream({base_stream:p.get_stdout_pipe()});
             const next=()=>stream.read_line_async(0,cancel,(input,res)=>{if(this._disposed||this._systemProcess!==p)return;try{const [bytes]=input.read_line_finish(res);if(!bytes)return;this._state.systemData=JSON.parse(ByteArray.toString(bytes));this._area.queue_repaint();next();}catch(e){if(!cancel.is_cancelled())global.logError(e);}});next();
             p.wait_async(null,(proc,res)=>{try{proc.wait_finish(res);}catch(e){}if(this._systemProcess===p){this._systemProcess=null;cancel.cancel();}});
@@ -123,11 +145,12 @@ class SilentDesklet extends Desklet.Desklet {
         this._edge.visible=this.role!=='clock';this._buildButtons();this._lastMinute=null;this._lastPaintKey=null;this._skyKey=null;this._align();
         this._spectrum.set_position(233*this.scale,176*this.scale);this._spectrum.set_size(70*this.scale,20*this.scale);
         this._spectrum.visible=this.role==='music'&&this.visualizer;
-        if(this._spectrum.visible&&!this._audioProcess)this._startAudio();
+        if(this._spectrum.visible&&this._state.media?.status==='Playing'&&!this._audioProcess)this._startAudio();
         if(!this._spectrum.visible)this._stopAudio();
         const serviceKey=this.role==='dashboard'?[this.latitude,this.longitude,this.fahrenheit].join(','):'';
         if(serviceKey!==this._serviceKey){this._stopService();this._serviceKey=serviceKey;if(serviceKey)this._startService();}
         this._prepareBackdrop();this._tick();this._applyLock();
+        if(this._ticksReady){this._scheduleTick();this._syncActivity();}
     }
     on_desklet_added_to_desktop(){
         this._applyLock();
@@ -158,7 +181,10 @@ class SilentDesklet extends Desklet.Desklet {
             if(this.role!=='clock'){
                 const o=new this.A.Observer(this.latitude,this.longitude,this.elevation), start=new Date(now);start.setHours(0,0,0,0);
                 const fmt=t=>{if(!t)return '—';let r=new Date(Math.round(t.date.getTime()/60000)*60000);return String(r.getHours()).padStart(2,'0')+':'+String(r.getMinutes()).padStart(2,'0');};
-                const rise=this.A.SearchRiseSet('Sun',o,1,start,1),set=this.A.SearchRiseSet('Sun',o,-1,start,1);
+                // Daily events do not change with each live-position update.
+                const dayKey=[start.getTime(),now.getTimezoneOffset(),this.latitude,this.longitude,this.elevation].join(':');
+                if(this._sunDayKey!==dayKey){this._sunDayKey=dayKey;this._sunDayEvents=[this.A.SearchRiseSet('Sun',o,1,start,1),this.A.SearchRiseSet('Sun',o,-1,start,1)];}
+                const [rise,set]=this._sunDayEvents;
                 this._state.sunrise=fmt(rise);this._state.sunset=fmt(set);
                 this._sunriseMs=rise?rise.date.getTime():null;this._sunsetMs=set?set.date.getTime():null;
                 if(this.role==='dashboard'){const eq=this.A.Equator('Sun',now,o,true,true);this._state.sunAltitude=this.A.Horizon(now,o,eq.ra,eq.dec,'normal').altitude;}
@@ -187,11 +213,12 @@ class SilentDesklet extends Desklet.Desklet {
             const h=(m?244:112)*this.scale;
             if(this._root.height!==Math.ceil(h)){this._root.set_height(Math.ceil(h));this._area.set_height(Math.ceil(h));}
             this._spectrum.visible=!!(m&&m.status==='Playing'&&this.visualizer);
+            if(this._spectrum.visible&&(this._activity?.active??this.actor.mapped))this._startAudio();else this._stopAudio();
             this._buttons.forEach(b=>b.visible=!!m);
             [m&&m.canPrevious,m&&(m.status==='Playing'?m.canPause:m.canPlay),m&&m.canNext,m&&m.canSeek&&m.duration>0].forEach((enabled,i)=>{if(this._buttons[i])this._buttons[i].reactive=!!enabled;});
         }
         // A clock and the large panorama need repainting only once per minute.
-        const paintKey=this.role!=='clock'?JSON.stringify([this._state.weather,this._state.air,this._state.media,this._state.artPath,this._state.backdrop,this._skyKey,this._state.isDay,Math.floor(this._state.position),this._lastMinute]):[this.role,this._state.time,this._lastMinute,this._state.details].join(':');
+        const paintKey=this.role!=='clock'?JSON.stringify([this._state.weather,this._state.air,this.role==='music'?this._state.media:null,this.role==='music'?this._state.artPath:null,this._state.backdrop,this._skyKey,this._state.isDay,this.role==='music'?Math.floor(this._state.position):null,this._lastMinute]):[this.role,this._state.time,this._lastMinute,this._state.details].join(':');
         if(paintKey!==this._lastPaintKey){this._lastPaintKey=paintKey;this._area.queue_repaint();}
     }
     _prepareBackdrop(){
@@ -291,6 +318,8 @@ class SilentDesklet extends Desklet.Desklet {
         try{this._process.get_stdin_pipe().write_all(ByteArray.fromString(JSON.stringify({action,fraction})+'\n'),null);}catch(e){global.logError(e);}
     }
     _startAudio(){
+        if(this._disposed||this._audioProcess||this._activity&&!this._activity.active||Date.now()<(this._audioRetryAt||0))return;
+        this._audioRetryAt=Date.now()+5000;
         try{
             const p=Gio.Subprocess.new(['/usr/bin/python3',this._path+'/audio-spectrum.py'],Gio.SubprocessFlags.STDOUT_PIPE|Gio.SubprocessFlags.STDIN_PIPE|Gio.SubprocessFlags.STDERR_SILENCE);this._audioProcess=p;this._audioCancel=new Gio.Cancellable();
             const input=new Gio.DataInputStream({base_stream:p.get_stdout_pipe()});
@@ -298,13 +327,14 @@ class SilentDesklet extends Desklet.Desklet {
                 if(this._disposed||this._audioProcess!==p)return;
                 try{const [bytes]=stream.read_line_finish(result);if(!bytes)return;const data=JSON.parse(ByteArray.toString(bytes));this._bands=data.bands||[];if(!this._lastSpectrumFrame||GLib.get_monotonic_time()-this._lastSpectrumFrame>45000){this._lastSpectrumFrame=GLib.get_monotonic_time();this._spectrum.queue_repaint();}read();}catch(e){if(!this._disposed)global.logError(e);}
             });read();
+            p.wait_async(null,(proc,res)=>{try{proc.wait_finish(res);}catch(e){}if(this._audioProcess===p){this._audioProcess=null;this._audioCancel?.cancel();}});
         }catch(e){global.logError(e);}
     }
     _trackMouse(){super._trackMouse();}
     _untrackMouse(){super._untrackMouse();}
-    _stopAudio(){if(this._audioCancel){this._audioCancel.cancel();this._audioCancel=null;}if(this._audioProcess){this._audioProcess.send_signal(15);this._audioProcess=null;}}
+    _stopAudio(){this._audioRetryAt=0;if(this._audioCancel){this._audioCancel.cancel();this._audioCancel=null;}if(this._audioProcess){const p=this._audioProcess;this._audioProcess=null;try{p.get_stdin_pipe().close(null);p.send_signal(15);}catch(e){}}}
     _stopService(){if(this._cancel){this._cancel.cancel();this._cancel=null;}if(this._process){this._process.force_exit();this._process=null;}this._state.media=null;}
-    _dispose(){if(this._disposed)return;this._stopSystem();this._root?.remove_all_transitions();if(this._edgeTimer){Mainloop.source_remove(this._edgeTimer);this._edgeTimer=0;}if(this._globalLockSignal){global.settings.disconnect(this._globalLockSignal);this._globalLockSignal=0;}if(this._detailMenu){this._detailMenu.destroy();this._detailMenu=null;}this._disposed=true;if(this._frostProcess){this._frostProcess.force_exit();this._frostProcess=null;}if(this._wallpaperSignal)this._wallpaper.disconnect(this._wallpaperSignal);this._untrackMouse();if(this._timer)Mainloop.source_remove(this._timer);this._timer=0;this._stopService();this._stopAudio();if(this._monitorSignal)Main.layoutManager.disconnect(this._monitorSignal);this._monitorSignal=0;this.settings.finalize();}
+    _dispose(){if(this._disposed)return;this._activity?.destroy();this._renderer.destroy();this._stopSystem();this._root?.remove_all_transitions();if(this._edgeTimer){Mainloop.source_remove(this._edgeTimer);this._edgeTimer=0;}if(this._globalLockSignal){global.settings.disconnect(this._globalLockSignal);this._globalLockSignal=0;}if(this._detailMenu){this._detailMenu.destroy();this._detailMenu=null;}this._disposed=true;if(this._frostProcess){this._frostProcess.force_exit();this._frostProcess=null;}if(this._wallpaperSignal)this._wallpaper.disconnect(this._wallpaperSignal);this._untrackMouse();if(this._timer)Mainloop.source_remove(this._timer);this._timer=0;this._stopService();this._stopAudio();if(this._monitorSignal)Main.layoutManager.disconnect(this._monitorSignal);this._monitorSignal=0;this.settings.finalize();}
     destroy(deleteConfig){this._dispose();super.destroy(deleteConfig);}
     on_desklet_reloaded(){this._dispose();}
     on_desklet_removed(){this._dispose();}

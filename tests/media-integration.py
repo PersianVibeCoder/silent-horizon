@@ -15,9 +15,11 @@ def own(name,method='RequestName'):
 # A broken peer must not prevent discovery of healthy players.
 own('org.mpris.MediaPlayer2.broken')
 connections=[]
+states={}
 def player(name,identity,status,art):
  c=Gio.DBusConnection.new_for_address_sync(os.environ['DBUS_SESSION_BUS_ADDRESS'],Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT|Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,None,None);connections.append(c)
  values={'org.mpris.MediaPlayer2':{'Identity':GLib.Variant('s',identity)},'org.mpris.MediaPlayer2.Player':{'PlaybackStatus':GLib.Variant('s',status),'Metadata':GLib.Variant('a{sv}',{'xesam:title':GLib.Variant('s',identity+' track'),'xesam:artist':GLib.Variant('as',['Test artist']),'mpris:trackid':GLib.Variant('o','/track/test'),'mpris:length':GLib.Variant('x',180000000),'mpris:artUrl':GLib.Variant('s',art)}),'Position':GLib.Variant('x',1000000),'Rate':GLib.Variant('d',1.0),**{k:GLib.Variant('b',True) for k in ['CanPlay','CanPause','CanGoNext','CanGoPrevious','CanSeek']}}}
+ states[name]=values
  xml='<node>'
  for interface,props in values.items():
   xml+='<interface name="'+interface+'">'+''.join('<property name="'+k+'" type="'+v.get_type_string()+'" access="read"/>' for k,v in props.items())
@@ -56,6 +58,13 @@ with tempfile.TemporaryDirectory() as td:
  try:
   v=wait(lambda v:media(v) and v['media']['source']=='Spotify');assert len(v['sessions'])==2
   wait(lambda v:v.get('kind')=='art' and Path(v['path']).is_file())
+  # External changes must arrive via signals, before the five-second fallback.
+  for status in ['Paused','Playing']:
+   states['org.mpris.MediaPlayer2.spotify']['org.mpris.MediaPlayer2.Player']['PlaybackStatus']=GLib.Variant('s',status)
+   started=time.monotonic()
+   spotify.emit_signal(None,'/org/mpris/MediaPlayer2','org.freedesktop.DBus.Properties','PropertiesChanged',GLib.Variant('(sa{sv}as)',('org.mpris.MediaPlayer2.Player',{'PlaybackStatus':GLib.Variant('s',status)},[])))
+   wait(lambda v:media(v) and v['media']['source']=='Spotify' and v['media']['status']==status)
+   assert time.monotonic()-started<3, 'External playback signal was not handled promptly'
   command('PlayPause');wait(lambda v:media(v) and v['media']['source']=='Spotify' and v['media']['status']=='Paused')
   proc.stdin.write(''.join(json.dumps(v)+'\n' for v in [{'action':'Next'},{'action':'Previous'},{'action':'seek','fraction':.5}]))
   proc.stdin.flush()

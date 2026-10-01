@@ -334,7 +334,9 @@ def main():
         screen = Gdk.Screen.get_default()
         if screen:
             geometry = screen.get_monitor_geometry(screen.get_primary_monitor())
-            width, height = geometry.width, geometry.height
+            # GDK reports logical pixels; Cinnamon desklet actors use stage pixels.
+            monitor_scale = screen.get_monitor_scale_factor(screen.get_primary_monitor())
+            width, height = geometry.width * monitor_scale, geometry.height * monitor_scale
     except (ImportError, ValueError):
         pass
     backup = install(Path.home(), settings, args.layout, width, height, prepare_fonts=refresh_fonts, with_plank=True)

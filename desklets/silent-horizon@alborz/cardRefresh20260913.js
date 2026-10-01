@@ -17,7 +17,7 @@ var Renderer=class Renderer extends Base.Renderer {
  draw(cr,scale,s){cr.save();cr.scale(scale,scale);cr.setLineCap(Cairo.LineCap.ROUND);cr.translate(PAD,PAD);this.dashboard(cr,s,scale);cr.restore();}
  glass(cr,s,scale,height){
   const spec=s.backdrop,key=JSON.stringify([spec,scale,height]);
-  if(!this._glass||this._glassKey!==key){this._glassKey=key;let backdrop=null;if(spec?.path){try{if(this._backdropPath!==spec.path){this._backdropPixbuf=GdkPixbuf.Pixbuf.new_from_file(spec.path);this._backdropPath=spec.path;}backdrop={...spec,pixbuf:this._backdropPixbuf};}catch(e){}}
+  if(!this._glass||this._glassKey!==key){this._glassKey=key;let backdrop=null;if(spec?.path){try{if(this._backdropPath!==spec.path){this._backdropPixbuf=this._image(spec.path);if(this._backdropPixbuf)this._backdropPath=spec.path;}backdrop={...spec,pixbuf:this._backdropPixbuf};}catch(e){}}
    this._glass=new Cairo.ImageSurface(Cairo.Format.ARGB32,Math.ceil((320+PAD*2)*scale),Math.ceil((height+PAD*2)*scale));const c=new Cairo.Context(this._glass);c.scale(scale,scale);c.translate(PAD,PAD);Base.panel(c,320,height,backdrop,scale);c.$dispose();
   }
   cr.save();cr.scale(1/scale,1/scale);cr.setSourceSurface(this._glass,-PAD*scale,-PAD*scale);cr.paint();cr.restore();
@@ -115,7 +115,7 @@ var Renderer=class Renderer extends Base.Renderer {
   const alt=s.sunAltitude??-18;let a,b,t;
   if(alt>=6){a=b='day';t=0;}else if(alt>=-4){a='twilight';b='day';t=(alt+4)/10;}else if(alt>=-14){a='night';b='twilight';t=(alt+14)/10;}else {a=b='night';t=0;}
   if(!this._rightImages)this._rightImages={};
-  const image=(kind,opacity)=>{if(!this._rightImages[kind]){const p=GdkPixbuf.Pixbuf.new_from_file(this.path+'/assets/horizon-'+kind+'.png'),surface=new Cairo.ImageSurface(Cairo.Format.ARGB32,960,558),ic=new Cairo.Context(surface);ic.scale(960/p.width,558/p.height);Gdk.cairo_set_source_pixbuf(ic,p,0,0);ic.paint();ic.$dispose();this._rightImages[kind]=surface;}cr.save();cr.translate(0,48);cr.scale(1/3,1/3);cr.setSourceSurface(this._rightImages[kind],0,0);const fade=new Cairo.LinearGradient(0,102,0,288);fade.addColorStopRGBA(0,1,1,1,0);fade.addColorStopRGBA(1,1,1,1,opacity);cr.mask(fade);cr.restore();};
+  const image=(kind,opacity)=>{if(!this._rightImages[kind]){const p=this._image(this.path+'/assets/horizon-'+kind+'.png');if(!p)return;const surface=new Cairo.ImageSurface(Cairo.Format.ARGB32,960,558),ic=new Cairo.Context(surface);ic.scale(960/p.width,558/p.height);Gdk.cairo_set_source_pixbuf(ic,p,0,0);ic.paint();ic.$dispose();this._rightImages[kind]=surface;}cr.save();cr.translate(0,48);cr.scale(1/3,1/3);cr.setSourceSurface(this._rightImages[kind],0,0);const fade=new Cairo.LinearGradient(0,102,0,288);fade.addColorStopRGBA(0,1,1,1,0);fade.addColorStopRGBA(1,1,1,1,opacity);cr.mask(fade);cr.restore();};
   image(a,1);if(a!==b)image(b,t);
   let foot=new Cairo.LinearGradient(0,190,0,238);foot.addColorStopRGBA(0,.014,.025,.04,0);foot.addColorStopRGBA(1,.014,.025,.04,.96);cr.setSource(foot);cr.rectangle(0,190,320,128);cr.fill();cr.restore();
   const bodies=project(s);
@@ -148,14 +148,14 @@ var install=function(a){
  St=imports.gi.St;Clutter=imports.gi.Clutter;Main=imports.ui.main;Mainloop=imports.mainloop;PopupMenu=imports.ui.popupMenu;
  a._rightInstalled=true;a._rightPrefs=GLib.get_user_config_dir()+'/cinnamon/right-cards-'+a._id+'.json';
  const prefs=readPrefs(a);Object.assign(a._state,{weatherExpanded:prefs.weatherExpanded!==false,skyMotion:!!prefs.skyMotion,skySelected:null});
- a._renderer=new Renderer(a._path);a._edge.hide();if(a._edgeTimer){Mainloop.source_remove(a._edgeTimer);a._edgeTimer=0;}
+ a._renderer.destroy();a._renderer=new Renderer(a._path);a._edge.hide();if(a._edgeTimer){Mainloop.source_remove(a._edgeTimer);a._edgeTimer=0;}
  a._rightLayout=function(){const l=layout(this._state);this._root.remove_all_transitions();this._root.set_clip_to_allocation(false);this._root.set_size(Math.ceil((320+PAD*2)*this.scale),Math.ceil(l.height*this.scale));this._area.set_size(Math.ceil((320+PAD*2)*this.scale),Math.ceil(l.height*this.scale));this._edge.hide();this._buildButtons();if(this._glassOverlay){this._glassOverlay.set_size(this._area.width,this._area.height);this._root.set_child_above_sibling(this._glassOverlay,null);this._glassOverlay.queue_repaint();}this._area.queue_repaint();};
  a._refreshCard=function(){
   if(this._disposed)return;
   const now=GLib.get_monotonic_time();
   if(this._refreshRequestedAt && now-this._refreshRequestedAt<1000000)return;
   this._refreshRequestedAt=now;
-  this._lastMinute=null;this._rightMinute=null;this._forecastKey=null;this._skyKey=null;this._lastPaintKey=null;
+  this._solarCache=null;this._sunDayKey=null;this._lastMinute=null;this._rightMinute=null;this._forecastKey=null;this._skyKey=null;this._lastPaintKey=null;
   if(this._process){
    const proc=this._process,bytes=imports.byteArray.fromString(JSON.stringify({action:'refresh'})+'\n');
    try{proc.get_stdin_pipe().write_all_async(bytes,GLib.PRIORITY_DEFAULT,null,(stream,result)=>{
@@ -207,7 +207,7 @@ var install=function(a){
  const changed=a._changed;a._changed=function(){changed.call(this);this._rightLayout();};
  const align=a._align;a._align=function(){align.call(this);if(this.placement!=='free'){const [x,y]=this.actor.get_position();this.actor.set_position(x-(PAD-12)*this.scale,y-(PAD-12)*this.scale);}};
  const [oldX,oldY]=a.actor.get_position();a.actor.set_position(oldX-(PAD-12)*a.scale,oldY-(PAD-12)*a.scale);
- const tick=a._tick;a._tick=function(){tick.call(this);if(this._state.backdrop){this._state.backdrop.x+=(PAD-12)*this.scale;this._state.backdrop.y+=(PAD-12)*this.scale;}if(this._rightMinute!==this._lastMinute){this._rightMinute=this._lastMinute;this._state.solarEvents=solarEvents(this.A,new Date(),this.latitude,this.longitude,this.elevation);this._state.eventMoon=this.Sky.calculate(new Date(this._state.solarEvents.moonEpoch*1000),this.latitude,this.longitude,this.elevation,'local-up');const now=new Date(Date.now()+15*60000),o=new this.A.Observer(this.latitude,this.longitude,this.elevation);for(const b of this._state.bodies||[]){const e=this.A.Equator(b.name,now,o,true,true),h=this.A.Horizon(now,o,e.ra,e.dec,'normal');b.nextAzimuth=h.azimuth;b.nextAltitude=h.altitude;}if(!project(this._state).some(p=>p.name===this._state.skySelected))this._state.skySelected=null;this._rightUpdateButtons();this._area.queue_repaint();}};
+ const tick=a._tick;a._tick=function(){tick.call(this);if(this._state.backdrop){this._state.backdrop.x+=(PAD-12)*this.scale;this._state.backdrop.y+=(PAD-12)*this.scale;}if(this._rightMinute!==this._lastMinute){this._rightMinute=this._lastMinute;this._state.solarEvents=cachedSolarEvents(this,new Date());this._state.eventMoon=this.Sky.calculate(new Date(this._state.solarEvents.moonEpoch*1000),this.latitude,this.longitude,this.elevation,'local-up');const now=new Date(Date.now()+15*60000),o=new this.A.Observer(this.latitude,this.longitude,this.elevation);for(const b of this._state.bodies||[]){const e=this.A.Equator(b.name,now,o,true,true),h=this.A.Horizon(now,o,e.ra,e.dec,'normal');b.nextAzimuth=h.azimuth;b.nextAltitude=h.altitude;}if(!project(this._state).some(p=>p.name===this._state.skySelected))this._state.skySelected=null;this._rightUpdateButtons();this._area.queue_repaint();}};
  const dispose=a._dispose;a._dispose=function(){if(this._rimTimer){Mainloop.source_remove(this._rimTimer);this._rimTimer=0;}if(this._skyDragSignal){global.stage.disconnect(this._skyDragSignal);this._skyDragSignal=0;}if(this._rightSave){Mainloop.source_remove(this._rightSave);this._rightSave=0;}dispose.call(this);};
  const motion=new PopupMenu.PopupSwitchMenuItem('Selected planet: show motion direction',a._state.skyMotion);motion.connect('toggled',(_item,value)=>{a._state.skyMotion=value;a._area.queue_repaint();savePrefs(a);});a._menu.addMenuItem(motion);
  const info=new PopupMenu.PopupMenuItem('Live sky positions · illustrative landscape');info.connect('activate',()=>a._showDetails('sky',a._skyScene||a._buttons[0]));a._menu.addMenuItem(info);
@@ -219,11 +219,32 @@ var install=function(a){
   row('SUN & MOON · '+this.city);for(const event of e.items||[])row(event.name+': '+fmt(event.time));row('Dark / Dawn: Sun 18° below the horizon');row('Moon phase: '+fmt(e.moonEpoch));menu.open();
  };
  a._glassOverlay=new St.DrawingArea({reactive:false});a._root.add_child(a._glassOverlay);a._glassOverlay.connect('repaint',area=>{const c=area.get_context();try{c.scale(a.scale,a.scale);c.translate(PAD,PAD);const l=layout(a._state),phase=(GLib.get_monotonic_time()/1e6/48)%1;rim(c,320,l.card);edge(c,l.card,phase);c.translate(0,l.system);rim(c,320,a._state.systemExpanded?204:44);edge(c,a._state.systemExpanded?204:44,(phase+.35)%1);}finally{c.$dispose();}});
- a._rimTimer=Mainloop.timeout_add(100,()=>{if(a._disposed)return false;if(a.actor.mapped){a._glassOverlay.queue_repaint();a._rimFrames=(a._rimFrames||0)+1;}return true;});
+ a._syncRim=function(active){
+  if(this._rimTimer){Mainloop.source_remove(this._rimTimer);this._rimTimer=0;}
+  if(active&&!this._disposed)this._rimTimer=Mainloop.timeout_add(100,()=>{
+   if(this._disposed||!this._activity?.active){this._rimTimer=0;return false;}
+   this._glassOverlay.queue_repaint();return true;
+  });
+ };
  a._rightMinute=null;
  installEventButtons(a);
  a._rightLayout();a._tick();
 };
+
+function cachedSolarEvents(a,now){
+ const key=[now.toDateString(),now.getTimezoneOffset(),a.latitude,a.longitude,a.elevation].join(':');
+ const cache=a._solarCache,ms=now.getTime();
+ // Recompute at the next event, after time moves backwards, or on settings/day changes.
+ if(!cache||cache.key!==key||ms<cache.at||ms>=cache.until){
+  const value=solarEvents(a.A,now,a.latitude,a.longitude,a.elevation);
+  const future=[value.sunrise,value.sunset,value.dark,value.dawn].filter(t=>t!=null&&t*1000>ms);
+  a._solarCache={key,at:ms,until:Math.min(ms+86400000,...future.map(t=>t*1000)),value};
+ }
+ const value={...a._solarCache.value};
+ // Night-time Moon remains live; only the expensive event searches are cached.
+ if((a._state.sunAltitude??0)<0)value.moonEpoch=ms/1000;
+ return value;
+}
 
 var solarEvents=function(A,now,lat,lon,elevation){
  const o=new A.Observer(lat,lon,elevation),start=new Date(now.getTime()+1000);

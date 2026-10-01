@@ -123,17 +123,41 @@ var drawEdge=function(cr,scale,width,height,phase){
     cr.restore();
 };
 var Renderer=class Renderer {
-    constructor(path){this.path=path;this.texture=null;this.art=null;this.artPath='';this._moonKey='';}
+    constructor(path){this.path=path;this.texture=null;this.art=null;this.artPath='';this._moonKey='';this._images=new Map();this._imageCancel=new imports.gi.Gio.Cancellable();}
+    _image(path){
+        if(!path||this._imageCancel.is_cancelled())return null;
+        const existing=this._images.get(path);
+        if(existing&&(existing.pixbuf||existing.pending||Date.now()<existing.retry))return existing.pixbuf||null;
+        const entry={pending:true};this._images.set(path,entry);
+        const Gio=imports.gi.Gio,cancel=this._imageCancel;
+        const finish=p=>{
+            if(cancel.is_cancelled())return;
+            entry.pending=false;entry.pixbuf=p;entry.retry=Date.now()+60000;
+            // Keep artwork history bounded; never evict an in-flight request.
+            for(const [key,value] of this._images){if(this._images.size<=12)break;if(key!==path&&!value.pending)this._images.delete(key);}
+            if(p){this._glassKey=null;if(this.onImageReady)this.onImageReady();}
+        };
+        Gio.File.new_for_path(path).read_async(0,cancel,(file,result)=>{
+            let stream;
+            try{stream=file.read_finish(result);}catch(e){finish(null);return;}
+            GdkPixbuf.Pixbuf.new_from_stream_async(stream,cancel,(_source,res)=>{
+                try{finish(GdkPixbuf.Pixbuf.new_from_stream_finish(res));}catch(e){finish(null);}
+                finally{stream.close_async(0,null,(s,r)=>{try{s.close_finish(r);}catch(e){}});}
+            });
+        });
+        return null;
+    }
+    destroy(){this._imageCancel.cancel();this._images.clear();this.onImageReady=null;}
     image(cr,path,x,y,w,h,r=6){
         try{
-            if(this.artPath!==path){this.art=GdkPixbuf.Pixbuf.new_from_file(path);this.artPath=path;}
+            if(this.artPath!==path){const loaded=this._image(path);if(!loaded)return;this.art=loaded;this.artPath=path;}
             let p=this.art, scale=Math.max(w/p.width,h/p.height);
             cr.save();round(cr,x,y,w,h,r);cr.clip();cr.translate(x+(w-p.width*scale)/2,y+(h-p.height*scale)/2);cr.scale(scale,scale);Gdk.cairo_set_source_pixbuf(cr,p,0,0);cr.paint();cr.restore();
         }catch(e){this.artPath='';}
     }
     moon(cr,moon,x,y,d,scale){
         if(!moon)return;
-        if(!this.texture){this.texture=GdkPixbuf.Pixbuf.new_from_file(this.path+'/assets/lroc-color.jpg');this.texturePixels=this.texture.get_pixels();}
+        if(!this.texture){this.texture=this._image(this.path+'/assets/lroc-color.jpg');if(!this.texture)return;this.texturePixels=this.texture.get_pixels();}
         this._paintMoon(cr,moon,scale,x,y,d);
     }
     draw(cr,scale,state){cr.save();cr.scale(scale,scale);cr.setLineCap(Cairo.LineCap.ROUND);
@@ -174,7 +198,7 @@ var Renderer=class Renderer {
         const spec=s.backdrop,key=JSON.stringify([scale,spec,height]);
         if(!this._glass||this._glassKey!==key){
             this._glassKey=key;let backdrop=null;
-            if(spec&&spec.path){try{if(this._backdropPath!==spec.path){this._backdropPixbuf=GdkPixbuf.Pixbuf.new_from_file(spec.path);this._backdropPath=spec.path;}backdrop=Object.assign({},spec,{pixbuf:this._backdropPixbuf});}catch(e){}}
+            if(spec&&spec.path){try{if(this._backdropPath!==spec.path){this._backdropPixbuf=this._image(spec.path);if(this._backdropPixbuf)this._backdropPath=spec.path;}backdrop=Object.assign({},spec,{pixbuf:this._backdropPixbuf});}catch(e){}}
             this._glass=new Cairo.ImageSurface(Cairo.Format.ARGB32,Math.ceil(344*scale),Math.ceil((height+24)*scale));
             const gc=new Cairo.Context(this._glass);gc.scale(scale,scale);gc.translate(12,12);panel(gc,320,height,backdrop,scale);gc.$dispose();
         }
@@ -311,7 +335,7 @@ var Renderer=class Renderer {
         if(alpha<=0)return;
         if(!this._landscapes)this._landscapes={};
         if(!this._landscapes[kind]){
-            const p=GdkPixbuf.Pixbuf.new_from_file(this.path+'/assets/horizon-'+kind+'.png');
+            const p=this._image(this.path+'/assets/horizon-'+kind+'.png');if(!p)return;
             const surface=new Cairo.ImageSurface(Cairo.Format.ARGB32,960,540),c=new Cairo.Context(surface);
             c.scale(960/p.width,540/p.height);Gdk.cairo_set_source_pixbuf(c,p,0,0);
             // Continuous alpha mask eliminates the old 90-strip banding.

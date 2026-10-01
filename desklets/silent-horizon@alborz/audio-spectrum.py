@@ -125,6 +125,7 @@ def main():
     except (OSError, PermissionError):
         pass
     subscription = None
+    next_subscription = 0.0
     workers = {}
     names = {}
     smooth = [0.0] * BANDS
@@ -137,7 +138,8 @@ def main():
         try:
             while RUNNING:
                 now = time.monotonic()
-                if subscription is None or subscription.poll() is not None:
+                if (subscription is None or subscription.poll() is not None) and now >= next_subscription:
+                    next_subscription = now + 2.0
                     if subscription is not None:
                         try: selector.unregister(subscription.stdout)
                         except Exception: pass
@@ -147,8 +149,9 @@ def main():
                         stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, env=ENV)
                     os.set_blocking(subscription.stdout.fileno(), False)
                     selector.register(subscription.stdout, selectors.EVENT_READ, 'pulse')
+                    refresh = 0.0
                 if now >= refresh:
-                    refresh = now + 4.0
+                    refresh = now + 30.0
                     try:
                         desired = output_monitors()
                         for monitor in list(workers):
@@ -170,6 +173,9 @@ def main():
                             return
                     elif key.data == 'pulse':
                         events = os.read(key.fileobj.fileno(), 65536)
+                        if not events:
+                            try: selector.unregister(key.fileobj)
+                            except Exception: pass
                         if b'sink-input' in events or b' on server ' in events or b' on sink ' in events:
                             refresh = min(refresh, time.monotonic() + 0.12)
                     else:
