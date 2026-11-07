@@ -322,8 +322,15 @@ def main():
             if result.returncode or result.stdout.strip() != 'install ok installed':
                 missing.append(package)
         if missing:
-            subprocess.run(['sudo', 'apt-get', 'update'], check=True)
-            subprocess.run(['sudo', 'apt-get', 'install', '-y', *missing], check=True)
+            print('Installing missing packages:', ' '.join(missing))
+            if subprocess.run(['sudo', 'apt-get', 'update']).returncode != 0:
+                print('\nNote: apt could not refresh one or more package sources (often an unrelated')
+                print('third-party repository with an expired key). Continuing with the cached lists.\n')
+            if subprocess.run(['sudo', 'apt-get', 'install', '-y', *missing]).returncode != 0:
+                print('\nCould not install: ' + ' '.join(missing))
+                print('Nothing has been changed yet. Fix the apt error shown above, or install those')
+                print('packages yourself and re-run:  bash install.sh --no-deps')
+                sys.exit(1)
         else:
             print('All dependencies are installed; no administrator access needed.')
     width, height = 1920, 1080
